@@ -1,3 +1,4 @@
+const { sendToTokens } = require("../services/fcm");
 const express = require("express");
 const db = require("../db");
 const { requireAuth, requireRole } = require("../middleware/auth");
@@ -270,6 +271,34 @@ router.post(
           JSON.stringify(details || {}),
         ],
       );
+
+      // Notify students on this route if high severity
+      if (
+        severity === "high" &&
+        ["breakdown", "route_deviation"].includes(event_type)
+      ) {
+        const studentsResult = await db.query(
+          `SELECT u.fcm_token FROM students s
+     JOIN users u ON s.userid = u.userid
+     JOIN stops st ON s.assigned_stop_id = st.id
+     JOIN trips t ON t.id = $1
+     JOIN route_assignments ra ON t.assignment_id = ra.id
+     WHERE st.route_id = ra.route_id AND u.fcm_token IS NOT NULL`,
+          [id],
+        );
+
+        const tokens = studentsResult.rows.map((r) => r.fcm_token);
+        if (tokens.length) {
+          await sendToTokens(
+            tokens,
+            "Bus Alert",
+            `Your bus has a ${event_type}. Expect delays.`,
+            { type: "trip_alert", trip_id: id, event_type },
+          );
+        }
+      }
+
+      res.status(201).json({ event: rows[0] });
 
       res.status(201).json({ event: rows[0] });
     } catch (err) {
