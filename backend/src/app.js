@@ -21,6 +21,7 @@ app.use("/api/drivers", require("./routes/drivers"));
 app.use("/api/stops", require("./routes/stops"));
 app.use("/api/route-assignments", require("./routes/route-assignments"));
 app.use("/api/bus-requests", require("./routes/bus-requests"));
+app.use("/api/trips", require("./routes/trips"));
 
 // Health check
 app.get("/health", (req, res) => {
