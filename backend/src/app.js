@@ -1,11 +1,15 @@
 const path = require("path");
 const express = require("express");
 const cors = require("cors");
-
+const express = require("express");
+const http = require("http");
+const { initSocket } = require("./services/socket");
+require("./services/redis");
 // Load env from root directory
 require("dotenv").config({ path: path.resolve(__dirname, "../.env") });
 
 const app = express();
+const server = http.createServer(app);
 
 // Middleware
 app.use(cors());
@@ -43,10 +47,12 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: "Internal server error" });
 });
 
+initSocket(server);
+
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
   console.log(`Environment: ${process.env.NODE_ENV || "development"}`);
 });
 
-module.exports = app;
+module.exports = { app, server };
