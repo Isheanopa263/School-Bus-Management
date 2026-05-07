@@ -24,6 +24,7 @@ app.use("/api/bus_requests", require("./routes/bus_requests"));
 app.use("/api/trips", require("./routes/trips"));
 app.use("/api/live-locations", require("./routes/live_locations"));
 app.use("/api/notifications", require("./routes/notifications"));
+app.use("/api/tickets", require("./routes/tickets"));
 
 // Health check
 app.get("/health", (req, res) => {
