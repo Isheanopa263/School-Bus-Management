@@ -9,3 +9,4 @@ dist/
 .dart_tool/
 .idea/
 .vscode/
+config/serviceAccountKey.json
