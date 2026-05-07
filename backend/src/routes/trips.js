@@ -1,3 +1,4 @@
+const { cacheActiveTrip, invalidateTrip } = require("../services/redis");
 const { sendToTokens } = require("../services/fcm");
 const express = require("express");
 const db = require("../db");
@@ -176,6 +177,18 @@ router.post(
         [assignment_id, trip_type],
       );
 
+      await client.query("COMMIT");
+
+      // Cache the active trip
+      await cacheActiveTrip(rows[0].id, {
+        trip_id: rows[0].id,
+        bus_id: bus_id,
+        driver_id: driver_id,
+        route_id: route_id,
+        status: "ongoing",
+        start_time: rows[0].start_time,
+      });
+
       res.status(201).json({ trip: rows[0], message: "Trip started" });
     } catch (err) {
       console.error("Start trip error:", err);
@@ -220,6 +233,11 @@ router.put(
        RETURNING *`,
         [delay_minutes || 0, id],
       );
+
+      await client.query("COMMIT");
+
+      // Invalidate cache
+      await invalidateTrip(id);
 
       res.json({ trip: rows[0], message: "Trip ended" });
     } catch (err) {

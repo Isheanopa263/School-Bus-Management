@@ -1,3 +1,8 @@
+const {
+  getCachedTrip,
+  cacheLatestLocation,
+  publishLocation,
+} = require("../services/redis");
 const express = require("express");
 const db = require("../db");
 const { requireAuth, requireRole } = require("../middleware/auth");
@@ -17,36 +22,50 @@ router.post("/", requireAuth, requireRole(["driver"]), async (req, res) => {
   }
 
   try {
-    const tripCheck = await db.query(
-      `SELECT t.id, ra.bus_id FROM trips t
-       JOIN route_assignments ra ON t.assignment_id = ra.id
-       JOIN drivers d ON ra.driver_id = d.id
-       WHERE t.id = $1 AND d.userid = $2 AND t.status = 'ongoing'`,
-      [trip_id, req.user.userid],
-    );
-
-    if (tripCheck.rows.length === 0) {
-      return res
-        .status(403)
-        .json({ error: "No ongoing trip found or not authorized" });
+    // 1. Check cache first, fallback to DB
+    let tripData = await getCachedTrip(trip_id);
+    if (!tripData) {
+      const tripCheck = await db.query(
+        `SELECT t.id, ra.bus_id FROM trips t
+     JOIN route_assignments ra ON t.assignment_id = ra.id
+     JOIN drivers d ON ra.driver_id = d.id
+     WHERE t.id = $1 AND d.userid = $2 AND t.status = 'ongoing'`,
+        [trip_id, req.user.userid],
+      );
+      if (tripCheck.rows.length === 0) {
+        return res.status(403).json({ error: "No ongoing trip found" });
+      }
+      tripData = tripCheck.rows[0];
+      await cacheActiveTrip(trip_id, tripData);
+    } else {
+      // Verify driver owns cached trip
+      const driverCheck = await db.query(
+        `SELECT 1 FROM drivers d JOIN route_assignments ra ON d.id = ra.driver_id
+     WHERE d.userid = $1 AND ra.bus_id = $2`,
+        [req.user.userid, tripData.bus_id],
+      );
+      if (driverCheck.rows.length === 0) {
+        return res.status(403).json({ error: "Not authorized" });
+      }
     }
 
-    const bus_id = tripCheck.rows[0].bus_id;
+    const bus_id = tripData.bus_id;
 
-    // FIX 1: Use ::geometry not ::geography
-    const { rows } = await db.query(
-      `INSERT INTO live_locations (bus_id, trip_id, location, speed_kmh, heading, recorded_at)
-       VALUES ($1, $2, ST_MakePoint($3, $4), $5, $6, NOW())
-       RETURNING id, recorded_at`,
-      [
-        bus_id,
-        trip_id,
-        longitude,
-        latitude,
-        speed_kmh || null,
-        heading || null,
-      ],
-    );
+    // 2. Insert GPS ping
+    const { rows } = await db.query(/* insert */);
+
+    // 3. Cache latest location + publish for real-time
+    const locationData = {
+      bus_id,
+      trip_id,
+      latitude,
+      longitude,
+      speed_kmh,
+      heading,
+      recorded_at: rows[0].recorded_at,
+    };
+    await cacheLatestLocation(bus_id, locationData);
+    await publishLocation(bus_id, locationData);
 
     // FIX 2: Same here for overspeeding event
     if (speed_kmh && speed_kmh > 60) {
@@ -76,6 +95,17 @@ router.post("/", requireAuth, requireRole(["driver"]), async (req, res) => {
 router.get("/latest", requireAuth, async (req, res) => {
   const { bus_id, trip_id } = req.query;
 
+  const { getCachedLocation } = require("../services/redis");
+
+  // If bus_id provided, check cache first
+  if (bus_id) {
+    const cached = await getCachedLocation(bus_id);
+    if (cached) {
+      return res.json({ location: cached, cached: true });
+    }
+  }
+
+  // Fallback to DB query...
   if (!bus_id && !trip_id) {
     return res.status(400).json({ error: "bus_id or trip_id required" });
   }
