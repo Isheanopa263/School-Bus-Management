@@ -2,12 +2,12 @@ const { Server } = require("socket.io");
 const { createClient } = require("redis");
 
 let io;
-const subscriber = createClient({ url: process.env.REDIS_URL });
+let subscriber = null;
 
 function initSocket(server) {
   io = new Server(server, {
     cors: {
-      origin: "*", // restrict this in prod
+      origin: "*", // restrict in prod
       methods: ["GET", "POST"],
     },
   });
@@ -15,13 +15,11 @@ function initSocket(server) {
   io.on("connection", (socket) => {
     console.log("Client connected:", socket.id);
 
-    // Client subscribes to a specific bus
     socket.on("subscribe-bus", async (bus_id) => {
       socket.join(`bus:${bus_id}`);
       console.log(`Socket ${socket.id} subscribed to bus:${bus_id}`);
     });
 
-    // Client unsubscribes
     socket.on("unsubscribe-bus", (bus_id) => {
       socket.leave(`bus:${bus_id}`);
       console.log(`Socket ${socket.id} unsubscribed from bus:${bus_id}`);
@@ -32,13 +30,34 @@ function initSocket(server) {
     });
   });
 
-  // Redis subscriber for all location updates
-  subscriber.connect();
-  subscriber.pSubscribe("location:*", (message, channel) => {
-    const bus_id = channel.split(":")[1];
-    const data = JSON.parse(message);
-    io.to(`bus:${bus_id}`).emit("location-update", data);
-  });
+  // Only connect Redis subscriber if REDIS_URL is set
+  if (process.env.REDIS_URL) {
+    subscriber = createClient({ url: process.env.REDIS_URL });
+
+    subscriber.on("error", (err) => {
+      console.warn("Socket Redis subscriber error:", err.message);
+    });
+
+    subscriber
+      .connect()
+      .then(() => {
+        console.log("Socket Redis subscriber connected");
+
+        subscriber.pSubscribe("location:*", (message, channel) => {
+          const bus_id = channel.split(":")[1];
+          const data = JSON.parse(message);
+          io.to(`bus:${bus_id}`).emit("location-update", data);
+        });
+      })
+      .catch((err) => {
+        console.warn(
+          "Socket Redis subscriber failed - live tracking via pub/sub disabled:",
+          err.message,
+        );
+      });
+  } else {
+    console.warn("REDIS_URL not set - pub/sub live tracking disabled");
+  }
 
   console.log("Socket.IO initialized");
   return io;

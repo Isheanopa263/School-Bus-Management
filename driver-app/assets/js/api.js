@@ -1,0 +1,55 @@
+const API_BASE = "http://localhost:3000/api";
+
+/**
+ * Core fetch wrapper
+ * - Attaches JWT token automatically
+ * - Returns parsed JSON or throws error object
+ */
+async function apiFetch(endpoint, options = {}) {
+  const token = localStorage.getItem("driver_token");
+
+  const headers = {
+    "Content-Type": "application/json",
+    ...(token && { Authorization: `Bearer ${token}` }),
+    ...options.headers,
+  };
+
+  try {
+    const response = await fetch(`${API_BASE}${endpoint}`, {
+      ...options,
+      headers,
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw {
+        status: response.status,
+        message: data.error || "Request failed",
+      };
+    }
+
+    return data;
+  } catch (err) {
+    // Network error (offline)
+    if (err instanceof TypeError) {
+      throw { status: 0, message: "No internet connection" };
+    }
+    throw err;
+  }
+}
+
+// ── Driver API calls ───────────────────────────────────────────────────────
+
+const DriverAPI = {
+  login(email, password) {
+    return apiFetch("/driver/login", {
+      method: "POST",
+      body: JSON.stringify({ email, password }),
+    });
+  },
+
+  getTodayRoute() {
+    return apiFetch("/driver/route/today");
+  },
+};

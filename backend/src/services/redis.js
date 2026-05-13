@@ -1,53 +1,113 @@
 const { createClient } = require("redis");
 
-const client = createClient({
-  url: process.env.REDIS_URL,
-});
+let client = null;
+let redisAvailable = false;
 
-client.on("error", (err) => console.error("Redis Client Error", err));
-client.on("connect", () => console.log("Redis connected"));
+// Only connect if REDIS_URL is set
+if (process.env.REDIS_URL) {
+  client = createClient({
+    url: process.env.REDIS_URL,
+    socket: {
+      reconnectStrategy: (retries) => {
+        if (retries > 3) {
+          console.warn("Redis: max retries reached, running without cache");
+          redisAvailable = false;
+          return false; // stop retrying
+        }
+        return retries * 500; // wait 500ms between retries
+      },
+    },
+  });
 
-(async () => {
-  await client.connect();
-})();
+  client.on("error", (err) => {
+    console.warn("Redis unavailable - running without cache:", err.message);
+    redisAvailable = false;
+  });
 
-// Helper: Cache active trip data
+  client.on("connect", () => {
+    console.log("Redis connected");
+    redisAvailable = true;
+  });
+
+  // Connect but don't crash if it fails
+  client.connect().catch((err) => {
+    console.warn(
+      "Redis connection failed - running without cache:",
+      err.message,
+    );
+    redisAvailable = false;
+  });
+} else {
+  console.warn("REDIS_URL not set - running without cache");
+}
+
+// ── Helpers (all fail silently if Redis is down) ──────────────────────────────
+
 async function cacheActiveTrip(trip_id, data) {
-  await client.setEx(`trip:${trip_id}`, 3600, JSON.stringify(data)); // 1hr TTL
+  if (!redisAvailable || !client) return;
+  try {
+    await client.setEx(`trip:${trip_id}`, 3600, JSON.stringify(data));
+  } catch (err) {
+    console.warn("Cache write failed:", err.message);
+  }
 }
 
-// Helper: Get cached trip
 async function getCachedTrip(trip_id) {
-  const data = await client.get(`trip:${trip_id}`);
-  return data ? JSON.parse(data) : null;
+  if (!redisAvailable || !client) return null;
+  try {
+    const data = await client.get(`trip:${trip_id}`);
+    return data ? JSON.parse(data) : null;
+  } catch (err) {
+    console.warn("Cache read failed:", err.message);
+    return null;
+  }
 }
 
-// Helper: Invalidate trip cache
 async function invalidateTrip(trip_id) {
-  await client.del(`trip:${trip_id}`);
+  if (!redisAvailable || !client) return;
+  try {
+    await client.del(`trip:${trip_id}`);
+  } catch (err) {
+    console.warn("Cache invalidate failed:", err.message);
+  }
 }
 
-// Helper: Cache latest location for fast polling
 async function cacheLatestLocation(bus_id, locationData) {
-  await client.setEx(
-    `bus_location:${bus_id}`,
-    60,
-    JSON.stringify(locationData),
-  ); // 60s TTL
+  if (!redisAvailable || !client) return;
+  try {
+    await client.setEx(
+      `bus_location:${bus_id}`,
+      60,
+      JSON.stringify(locationData),
+    );
+  } catch (err) {
+    console.warn("Cache write failed:", err.message);
+  }
 }
 
 async function getCachedLocation(bus_id) {
-  const data = await client.get(`bus_location:${bus_id}`);
-  return data ? JSON.parse(data) : null;
+  if (!redisAvailable || !client) return null;
+  try {
+    const data = await client.get(`bus_location:${bus_id}`);
+    return data ? JSON.parse(data) : null;
+  } catch (err) {
+    console.warn("Cache read failed:", err.message);
+    return null;
+  }
 }
 
-// Pub/Sub for real-time
 async function publishLocation(bus_id, data) {
-  await client.publish(`location:${bus_id}`, JSON.stringify(data));
+  if (!redisAvailable || !client) return;
+  try {
+    await client.publish(`location:${bus_id}`, JSON.stringify(data));
+  } catch (err) {
+    console.warn("Publish failed:", err.message);
+  }
 }
 
 module.exports = {
   client,
+  redisAvailable,
   cacheActiveTrip,
   getCachedTrip,
   invalidateTrip,

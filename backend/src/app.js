@@ -17,6 +17,8 @@ app.use(
       "http://127.0.0.1:5501",
       "http://localhost:5501",
       "http://localhost:3001",
+      "http://127.0.0.1:5502",
+      "http://localhost:5502",
     ],
     credentials: true,
   }),
@@ -42,6 +44,7 @@ app.use("/api/reports", require("./routes/reports"));
 app.use("/api/complaints", require("./routes/complaints"));
 app.use("/api/stats", require("./routes/stats"));
 app.use("/api/schedules", require("./routes/schedules"));
+app.use("/api/driver", require("./routes/driver"));
 
 // Health check
 app.get("/health", (req, res) => {
