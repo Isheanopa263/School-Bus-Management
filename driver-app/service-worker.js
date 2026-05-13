@@ -7,6 +7,8 @@ const STATIC_ASSETS = [
   "/driver-app/assets/js/api.js",
   "/driver-app/assets/js/login.js",
   "/driver-app/assets/js/route-view.js",
+  "/driver-app/assets/js/gps.js",
+  "/driver-app/assets/js/navigation.js",
 ];
 
 // Install - cache static assets

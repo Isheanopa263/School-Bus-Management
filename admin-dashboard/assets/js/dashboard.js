@@ -1,6 +1,15 @@
 const API_BASE = "http://localhost:3000";
 
 document.addEventListener("DOMContentLoaded", () => {
+  const token = localStorage.getItem("token");
+  if (!token) return (window.location.href = "./index.html");
+
+  const payload = JSON.parse(atob(token.split(".")[1]));
+  if (payload.role !== "admin") {
+    localStorage.removeItem("token");
+    window.location.href = "./index.html";
+    return;
+  }
   init();
 });
 

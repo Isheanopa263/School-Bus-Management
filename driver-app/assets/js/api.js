@@ -52,4 +52,52 @@ const DriverAPI = {
   getTodayRoute() {
     return apiFetch("/driver/route/today");
   },
+
+  startTrip(trip_type) {
+    return apiFetch("/driver/trips/start", {
+      method: "POST",
+      body: JSON.stringify({ trip_type }),
+    });
+  },
+
+  endTrip(tripId) {
+    return apiFetch(`/driver/trips/${tripId}/end`, {
+      method: "POST",
+    });
+  },
+
+  updateLocation(tripId, latitude, longitude, speed, heading) {
+    return apiFetch("/driver/location/update", {
+      method: "POST",
+      body: JSON.stringify({
+        trip_id: tripId,
+        latitude,
+        longitude,
+        speed,
+        heading,
+      }),
+    });
+  },
+
+  getLocationHistory(tripId) {
+    return apiFetch(`/driver/location/history/${tripId}`);
+  },
+
+  // ── SOS ────────────────────────────────────────────────────────────────
+  sendSOS(eventType, severity, details, latitude, longitude) {
+    return apiFetch("/driver/sos", {
+      method: "POST",
+      body: JSON.stringify({
+        event_type: eventType,
+        severity,
+        details,
+        latitude,
+        longitude,
+      }),
+    });
+  },
+
+  getSOSHistory() {
+    return apiFetch("/driver/sos/history");
+  },
 };

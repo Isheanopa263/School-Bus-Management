@@ -250,4 +250,462 @@ router.get(
   },
 );
 
+/**
+ * POST /api/driver/trips/start
+ * Creates a new trip record and marks it as ongoing
+ */
+router.post(
+  "/trips/start",
+  requireAuth,
+  requireRole(["driver"]),
+  async (req, res) => {
+    const userId = req.user.userid;
+    const { trip_type } = req.body;
+
+    if (!trip_type || !["pickup", "drop"].includes(trip_type)) {
+      return res
+        .status(400)
+        .json({ error: "trip_type must be 'pickup' or 'drop'" });
+    }
+
+    try {
+      // Get driver id
+      const driverResult = await db.query(
+        `SELECT id FROM drivers WHERE userid = $1`,
+        [userId],
+      );
+
+      if (driverResult.rows.length === 0) {
+        return res.status(404).json({ error: "Driver profile not found" });
+      }
+
+      const driverId = driverResult.rows[0].id;
+      const today = new Date().toISOString().split("T")[0];
+
+      // Get today's assignment
+      const assignmentResult = await db.query(
+        `SELECT id FROM route_assignments
+         WHERE driver_id = $1
+           AND effective_date <= $2
+           AND (end_date IS NULL OR end_date >= $2)
+         ORDER BY effective_date DESC
+         LIMIT 1`,
+        [driverId, today],
+      );
+
+      if (assignmentResult.rows.length === 0) {
+        return res
+          .status(404)
+          .json({ error: "No route assignment found for today" });
+      }
+
+      const assignmentId = assignmentResult.rows[0].id;
+
+      // Check if a trip is already ongoing
+      const ongoingResult = await db.query(
+        `SELECT id FROM trips
+         WHERE assignment_id = $1
+           AND trip_date = $2
+           AND status = 'ongoing'`,
+        [assignmentId, today],
+      );
+
+      if (ongoingResult.rows.length > 0) {
+        return res.status(409).json({
+          error: "A trip is already ongoing",
+          trip_id: ongoingResult.rows[0].id,
+        });
+      }
+
+      // Create new trip
+      const tripResult = await db.query(
+        `INSERT INTO trips 
+          (assignment_id, trip_date, trip_type, start_time, status)
+         VALUES ($1, $2, $3, NOW(), 'ongoing')
+         RETURNING id, assignment_id, trip_date, trip_type, 
+                   start_time, status`,
+        [assignmentId, today, trip_type],
+      );
+
+      res.status(201).json({ trip: tripResult.rows[0] });
+    } catch (err) {
+      console.error("Start trip error:", err);
+      res.status(500).json({ error: "Failed to start trip" });
+    }
+  },
+);
+
+/**
+ * POST /api/driver/trips/:id/end
+ * Marks an ongoing trip as completed
+ */
+router.post(
+  "/trips/:id/end",
+  requireAuth,
+  requireRole(["driver"]),
+  async (req, res) => {
+    const userId = req.user.userid;
+    const { id } = req.params;
+
+    try {
+      // Verify this trip belongs to this driver
+      const verifyResult = await db.query(
+        `SELECT t.id, t.status, t.start_time, ra.driver_id
+         FROM trips t
+         JOIN route_assignments ra ON ra.id = t.assignment_id
+         JOIN drivers d ON d.id = ra.driver_id
+         WHERE t.id = $1
+           AND d.userid = $2`,
+        [id, userId],
+      );
+
+      if (verifyResult.rows.length === 0) {
+        return res.status(404).json({ error: "Trip not found" });
+      }
+
+      const trip = verifyResult.rows[0];
+
+      if (trip.status !== "ongoing") {
+        return res.status(400).json({
+          error: `Trip is already ${trip.status}`,
+        });
+      }
+
+      // Calculate delay (difference between actual end and expected)
+      // For now we store 0, can be enhanced with schedule comparison
+      const tripResult = await db.query(
+        `UPDATE trips
+         SET status       = 'completed',
+             end_time     = NOW(),
+             delay_minutes = EXTRACT(
+               EPOCH FROM (NOW() - start_time)
+             )::INT / 60
+         WHERE id = $1
+         RETURNING id, trip_type, trip_date, start_time, 
+                   end_time, status, delay_minutes`,
+        [id],
+      );
+
+      res.json({ trip: tripResult.rows[0] });
+    } catch (err) {
+      console.error("End trip error:", err);
+      res.status(500).json({ error: "Failed to end trip" });
+    }
+  },
+);
+
+/**
+ * POST /api/driver/location/update
+ * Receives GPS coordinates from driver app during active trip
+ */
+router.post(
+  "/location/update",
+  requireAuth,
+  requireRole(["driver"]),
+  async (req, res) => {
+    const userId = req.user.userid;
+    const { trip_id, latitude, longitude, speed, heading } = req.body;
+
+    // Validate
+    if (!trip_id || latitude == null || longitude == null) {
+      return res.status(400).json({
+        error: "trip_id, latitude, and longitude are required",
+      });
+    }
+
+    if (
+      latitude < -90 ||
+      latitude > 90 ||
+      longitude < -180 ||
+      longitude > 180
+    ) {
+      return res.status(400).json({ error: "Invalid coordinates" });
+    }
+
+    try {
+      // Verify trip belongs to this driver and is ongoing
+      const verifyResult = await db.query(
+        `SELECT t.id, t.status, ra.bus_id
+         FROM trips t
+         JOIN route_assignments ra ON ra.id = t.assignment_id
+         JOIN drivers d ON d.id = ra.driver_id
+         WHERE t.id = $1
+           AND d.userid = $2`,
+        [trip_id, userId],
+      );
+
+      if (verifyResult.rows.length === 0) {
+        return res.status(404).json({ error: "Trip not found" });
+      }
+
+      const trip = verifyResult.rows[0];
+
+      if (trip.status !== "ongoing") {
+        return res.status(400).json({ error: "Trip is not active" });
+      }
+
+      const busId = trip.bus_id;
+
+      // Insert into live_locations
+      await db.query(
+        `INSERT INTO live_locations 
+          (bus_id, trip_id, location, speed_kmh, heading, recorded_at)
+         VALUES (
+           $1, $2,
+           ST_SetSRID(ST_MakePoint($3, $4), 4326),
+           $5, $6, NOW()
+         )`,
+        [busId, trip_id, longitude, latitude, speed || 0, heading || 0],
+      );
+
+      // Also try to publish via Redis for real-time (fails silently if no Redis)
+      try {
+        const {
+          cacheLatestLocation,
+          publishLocation,
+        } = require("../services/redis");
+
+        const locationData = {
+          bus_id: busId,
+          trip_id,
+          latitude,
+          longitude,
+          speed: speed || 0,
+          heading: heading || 0,
+          timestamp: new Date().toISOString(),
+        };
+
+        await cacheLatestLocation(busId, locationData);
+        await publishLocation(busId, locationData);
+      } catch (redisErr) {
+        // Redis not available - location still saved to DB
+      }
+
+      res.json({ status: "ok" });
+    } catch (err) {
+      console.error("Location update error:", err);
+      res.status(500).json({ error: "Failed to update location" });
+    }
+  },
+);
+
+/**
+ * GET /api/driver/location/history/:tripId
+ * Returns location history for a specific trip
+ */
+router.get(
+  "/location/history/:tripId",
+  requireAuth,
+  requireRole(["driver"]),
+  async (req, res) => {
+    const userId = req.user.userid;
+    const { tripId } = req.params;
+
+    try {
+      // Verify trip belongs to this driver
+      const verifyResult = await db.query(
+        `SELECT t.id
+         FROM trips t
+         JOIN route_assignments ra ON ra.id = t.assignment_id
+         JOIN drivers d ON d.id = ra.driver_id
+         WHERE t.id = $1
+           AND d.userid = $2`,
+        [tripId, userId],
+      );
+
+      if (verifyResult.rows.length === 0) {
+        return res.status(404).json({ error: "Trip not found" });
+      }
+
+      const { rows } = await db.query(
+        `SELECT 
+          ST_Y(location::geometry) AS latitude,
+          ST_X(location::geometry) AS longitude,
+          speed_kmh,
+          heading,
+          recorded_at
+         FROM live_locations
+         WHERE trip_id = $1
+         ORDER BY recorded_at ASC`,
+        [tripId],
+      );
+
+      res.json({
+        trip_id: tripId,
+        total_points: rows.length,
+        locations: rows,
+      });
+    } catch (err) {
+      console.error("Location history error:", err);
+      res.status(500).json({ error: "Failed to fetch location history" });
+    }
+  },
+);
+
+/**
+ * POST /api/driver/sos
+ * Creates an SOS/breakdown event during an active trip
+ */
+router.post("/sos", requireAuth, requireRole(["driver"]), async (req, res) => {
+  const userId = req.user.userid;
+  const { event_type, severity, details, latitude, longitude } = req.body;
+
+  // Validate event type
+  const allowedTypes = [
+    "breakdown",
+    "sos",
+    "overspeeding",
+    "route_deviation",
+    "harsh_braking",
+  ];
+
+  if (!event_type || !allowedTypes.includes(event_type)) {
+    return res.status(400).json({
+      error: `event_type must be one of: ${allowedTypes.join(", ")}`,
+    });
+  }
+
+  const validSeverities = ["low", "medium", "high"];
+  const finalSeverity = validSeverities.includes(severity) ? severity : "high";
+
+  try {
+    // Get driver info
+    const driverResult = await db.query(
+      `SELECT d.id AS driver_id, d.current_bus_id
+         FROM drivers d
+         WHERE d.userid = $1`,
+      [userId],
+    );
+
+    if (driverResult.rows.length === 0) {
+      return res.status(404).json({ error: "Driver profile not found" });
+    }
+
+    const driver = driverResult.rows[0];
+    const driverId = driver.driver_id;
+    const busId = driver.current_bus_id;
+    const today = new Date().toISOString().split("T")[0];
+
+    // Find active trip (optional - SOS can work without active trip)
+    const tripResult = await db.query(
+      `SELECT t.id
+         FROM trips t
+         JOIN route_assignments ra ON ra.id = t.assignment_id
+         WHERE ra.driver_id = $1
+           AND t.trip_date = $2
+           AND t.status = 'ongoing'
+         ORDER BY t.start_time DESC
+         LIMIT 1`,
+      [driverId, today],
+    );
+
+    const tripId = tripResult.rows.length > 0 ? tripResult.rows[0].id : null;
+
+    // Build location if provided
+    let locationQuery = "NULL";
+    const queryParams = [
+      tripId,
+      busId,
+      event_type,
+      finalSeverity,
+      details ? JSON.stringify(details) : null,
+    ];
+
+    if (latitude != null && longitude != null) {
+      queryParams.push(longitude, latitude);
+      locationQuery = `ST_SetSRID(ST_MakePoint($${queryParams.length - 1}, $${queryParams.length}), 4326)`;
+    }
+
+    // Insert trip event
+    const eventResult = await db.query(
+      `INSERT INTO trip_events
+          (trip_id, bus_id, event_type, severity, location, details, occurred_at)
+         VALUES ($1, $2, $3, $4, ${locationQuery}, $5, NOW())
+         RETURNING id, trip_id, bus_id, event_type, severity, details, occurred_at`,
+      queryParams,
+    );
+
+    const event = eventResult.rows[0];
+
+    // Also create a complaint record for admin tracking
+    await db.query(
+      `INSERT INTO complaints
+          (raised_by, trip_id, driver_id, bus_id, category, description, 
+           status, priority, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, 'open', $7, NOW())`,
+      [
+        userId,
+        tripId,
+        driverId,
+        busId,
+        event_type,
+        details?.description ||
+          `${event_type.toUpperCase()} reported by driver`,
+        finalSeverity === "high" ? "high" : "medium",
+      ],
+    );
+
+    console.log(
+      `🚨 SOS ALERT: ${event_type} from driver ${userId} at ${new Date().toISOString()}`,
+    );
+
+    res.status(201).json({
+      event,
+      message: "SOS alert sent successfully. Admin has been notified.",
+    });
+  } catch (err) {
+    console.error("SOS error:", err);
+    res.status(500).json({ error: "Failed to send SOS alert" });
+  }
+});
+
+/**
+ * GET /api/driver/sos/history
+ * Returns SOS/event history for the driver
+ */
+router.get(
+  "/sos/history",
+  requireAuth,
+  requireRole(["driver"]),
+  async (req, res) => {
+    const userId = req.user.userid;
+
+    try {
+      const driverResult = await db.query(
+        `SELECT id FROM drivers WHERE userid = $1`,
+        [userId],
+      );
+
+      if (driverResult.rows.length === 0) {
+        return res.status(404).json({ error: "Driver profile not found" });
+      }
+
+      const driverId = driverResult.rows[0].id;
+
+      const { rows } = await db.query(
+        `SELECT 
+    te.id, te.event_type, te.severity, te.details,
+    te.occurred_at,
+    ST_Y(te.location::geometry) AS latitude,
+    ST_X(te.location::geometry) AS longitude,
+    t.trip_date, t.trip_type
+   FROM trip_events te
+   LEFT JOIN trips t ON t.id = te.trip_id
+   LEFT JOIN route_assignments ra ON ra.id = t.assignment_id
+   WHERE (ra.driver_id = $1 OR te.bus_id = (
+     SELECT current_bus_id FROM drivers WHERE id = $1
+   ))
+   ORDER BY te.occurred_at DESC
+   LIMIT 20`,
+        [driverId],
+      );
+
+      res.json({ events: rows });
+    } catch (err) {
+      console.error("SOS history error:", err);
+      res.status(500).json({ error: "Failed to fetch SOS history" });
+    }
+  },
+);
+
 module.exports = router;

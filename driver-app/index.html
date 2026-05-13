@@ -19,6 +19,13 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
       rel="stylesheet"
     />
+    <!-- Leaflet Map -->
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <link rel="stylesheet" href="assets/css/app.css" />
     <link rel="stylesheet" href="assets/css/app.css" />
 
     <!-- Screen: Login -->
@@ -163,77 +170,613 @@
       </div>
     </template>
 
-    <!-- Screen: Route View -->
+    <!-- Screen: Route View
+  -->
     <template id="tpl-route">
       <div class="screen" id="screen-route">
-        <!-- Nav Bar -->
-        <nav class="nav">
-          <div class="nav-container">
-            <div class="nav-brand">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                <path
-                  d="M4 16V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v10"
-                  stroke="currentColor"
-                  stroke-width="2"
-                />
-                <path
-                  d="M4 16h16v2a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-2z"
-                  fill="currentColor"
-                />
-              </svg>
-              <span>BusTrack Driver</span>
-            </div>
-            <div class="nav-right">
-              <div class="driver-info-nav">
-                <span class="driver-name-nav" id="header-driver-name"
-                  >Driver</span
-                >
-                <span class="driver-bus-nav" id="header-bus-number"
-                  >Loading...</span
-                >
-              </div>
-              <button id="logout-btn" class="btn-logout">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                  <path
-                    d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"
-                    stroke="currentColor"
-                    stroke-width="2"
-                  />
-                  <path
-                    d="M16 17l5-5-5-5M21 12H9"
-                    stroke="currentColor"
-                    stroke-width="2"
-                  />
-                </svg>
-                <span>Logout</span>
-              </button>
-            </div>
+        <!-- Top Nav (Mobile) -->
+        <nav class="top-nav">
+          <button class="menu-toggle" id="menu-toggle">
+            <svg
+              width="22"
+              height="22"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <line x1="3" y1="6" x2="21" y2="6" />
+              <line x1="3" y1="12" x2="21" y2="12" />
+              <line x1="3" y1="18" x2="21" y2="18" />
+            </svg>
+          </button>
+          <div class="top-nav-brand">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+              <path
+                d="M4 16V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v10"
+                stroke="currentColor"
+                stroke-width="2"
+              />
+              <path
+                d="M4 16h16v2a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-2z"
+                fill="currentColor"
+              />
+            </svg>
+            <span>BusTrack Driver</span>
+          </div>
+          <div class="top-nav-right">
+            <span class="top-nav-driver" id="top-driver-name"></span>
           </div>
         </nav>
 
-        <main class="main">
-          <!-- Route Summary Card -->
-          <div class="route-summary card" id="route-summary">
-            <div class="summary-loading">
-              <div class="spinner"></div>
-              <p>Loading today's route...</p>
+        <div class="app-layout">
+          <!-- Sidebar -->
+          <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+              <div class="sidebar-brand">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+                  <path
+                    d="M4 16V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v10"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  />
+                  <path
+                    d="M4 16h16v2a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-2z"
+                    fill="currentColor"
+                  />
+                </svg>
+                <span class="sidebar-title">BusTrack</span>
+              </div>
+              <button class="sidebar-collapse-btn" id="sidebar-collapse">
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <polyline points="15 18 9 12 15 6" />
+                </svg>
+              </button>
             </div>
-          </div>
 
-          <!-- Stops + Students List -->
-          <div class="stops-section">
-            <div class="section-header">
-              <div>
-                <h2>Stops & Students</h2>
+            <!-- Driver Profile -->
+            <div class="sidebar-profile">
+              <div class="profile-avatar" id="sidebar-avatar">R</div>
+              <div class="profile-info">
+                <div class="profile-name" id="sidebar-driver-name">Driver</div>
+                <div class="profile-bus" id="sidebar-bus-number">
+                  Loading...
+                </div>
+              </div>
+            </div>
+
+            <!-- Nav Items -->
+            <nav class="sidebar-nav">
+              <button
+                class="sidebar-link active"
+                data-tab="dashboard"
+                id="nav-dashboard"
+              >
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <rect x="3" y="3" width="7" height="7" />
+                  <rect x="14" y="3" width="7" height="7" />
+                  <rect x="3" y="14" width="7" height="7" />
+                  <rect x="14" y="14" width="7" height="7" />
+                </svg>
+                <span class="sidebar-link-text">Dashboard</span>
+              </button>
+
+              <!-- Add this after the Trip Control sidebar link -->
+              <button class="sidebar-link sos-link" data-tab="sos" id="nav-sos">
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <path
+                    d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"
+                  />
+                  <line x1="12" y1="9" x2="12" y2="13" />
+                  <line x1="12" y1="17" x2="12.01" y2="17" />
+                </svg>
+                <span class="sidebar-link-text">SOS / Report</span>
+              </button>
+
+              <button class="sidebar-link" data-tab="map" id="nav-map">
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <polygon
+                    points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"
+                  />
+                  <line x1="8" y1="2" x2="8" y2="18" />
+                  <line x1="16" y1="6" x2="16" y2="22" />
+                </svg>
+                <span class="sidebar-link-text">Map & Navigation</span>
+              </button>
+
+              <button class="sidebar-link" data-tab="stops" id="nav-stops">
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                  <circle cx="12" cy="10" r="3" />
+                </svg>
+                <span class="sidebar-link-text">Stops & Students</span>
+              </button>
+
+              <button class="sidebar-link" data-tab="trip" id="nav-trip">
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <circle cx="12" cy="12" r="10" />
+                  <polyline points="12 6 12 12 16 14" />
+                </svg>
+                <span class="sidebar-link-text">Trip Control</span>
+                <span class="sidebar-badge hidden" id="trip-badge">LIVE</span>
+              </button>
+            </nav>
+
+            <!-- Sidebar Footer -->
+            <div class="sidebar-footer">
+              <button class="sidebar-link logout-link" id="logout-btn">
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                  <polyline points="16 17 21 12 16 7" />
+                  <line x1="21" y1="12" x2="9" y2="12" />
+                </svg>
+                <span class="sidebar-link-text">Logout</span>
+              </button>
+            </div>
+          </aside>
+
+          <!-- Sidebar Overlay (mobile) -->
+          <div class="sidebar-overlay" id="sidebar-overlay"></div>
+
+          <!-- Main Content -->
+          <div class="content-area">
+            <!-- TAB: Dashboard -->
+            <section class="tab-content active" id="tab-dashboard">
+              <div class="content-header">
+                <h1>Dashboard</h1>
+                <p class="subtitle">Today's overview</p>
+              </div>
+
+              <!-- Trip Control Bar -->
+              <div class="trip-control-bar" id="trip-control-bar">
+                <div class="trip-state" id="trip-idle">
+                  <div class="trip-idle-info">
+                    <span class="trip-state-icon">🚌</span>
+                    <span class="trip-state-label">No active trip</span>
+                  </div>
+                  <button class="btn-start-trip" id="start-trip-btn">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                      <polygon
+                        points="5 3 19 12 5 21 5 3"
+                        fill="currentColor"
+                      />
+                    </svg>
+                    Start Trip
+                  </button>
+                </div>
+                <div class="trip-state hidden" id="trip-active">
+                  <div class="trip-active-info">
+                    <div class="trip-active-dot"></div>
+                    <div>
+                      <div class="trip-active-label">Trip in Progress</div>
+                      <div class="trip-active-meta">
+                        <span id="trip-type-label">-</span>
+                        &bull;
+                        <span id="trip-timer">00:00:00</span>
+                      </div>
+                    </div>
+                  </div>
+                  <button class="btn-end-trip" id="end-trip-btn">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                      <rect
+                        x="3"
+                        y="3"
+                        width="18"
+                        height="18"
+                        rx="2"
+                        fill="currentColor"
+                      />
+                    </svg>
+                    End Trip
+                  </button>
+                </div>
+              </div>
+
+              <!-- GPS Status -->
+              <div class="gps-status hidden" id="gps-status">
+                <div class="gps-status-dot"></div>
+                <span class="gps-status-label">GPS Status</span>
+              </div>
+
+              <!-- Route Summary -->
+              <div class="route-summary card" id="route-summary">
+                <div class="summary-loading">
+                  <div class="spinner"></div>
+                  <p>Loading today's route...</p>
+                </div>
+              </div>
+
+              <!-- Quick Stats -->
+              <div class="quick-stats" id="quick-stats"></div>
+            </section>
+
+            <!-- TAB: Map & Navigation -->
+            <section class="tab-content" id="tab-map">
+              <div class="content-header">
+                <h1>Map & Navigation</h1>
+                <p class="subtitle">Live route tracking</p>
+              </div>
+
+              <!-- Navigation Bar -->
+              <div class="nav-bar-card hidden" id="nav-bar">
+                <div class="nav-bar-header">
+                  <div class="nav-bar-icon">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                      <path
+                        d="M12 2L4.5 20.3l.7.7L12 18l6.8 3 .7-.7L12 2z"
+                        fill="currentColor"
+                      />
+                    </svg>
+                  </div>
+                  <div class="nav-bar-info">
+                    <div class="nav-bar-label">Next Stop</div>
+                    <div class="nav-bar-stop-name" id="nav-next-stop">-</div>
+                  </div>
+                </div>
+                <div class="nav-bar-stats">
+                  <div class="nav-stat">
+                    <span class="nav-stat-value" id="nav-distance">-</span>
+                    <span class="nav-stat-label">Distance</span>
+                  </div>
+                  <div class="nav-stat-divider"></div>
+                  <div class="nav-stat">
+                    <span class="nav-stat-value" id="nav-eta">-</span>
+                    <span class="nav-stat-label">ETA</span>
+                  </div>
+                  <div class="nav-stat-divider"></div>
+                  <div class="nav-stat">
+                    <span class="nav-stat-value" id="nav-speed">-</span>
+                    <span class="nav-stat-label">Speed</span>
+                  </div>
+                </div>
+                <div class="nav-progress-bar">
+                  <div class="nav-progress-fill" id="nav-progress"></div>
+                </div>
+              </div>
+
+              <!-- Map -->
+              <div class="map-container card">
+                <div class="map-header">
+                  <h3>Route Map</h3>
+                  <button
+                    class="btn-icon-sm"
+                    id="center-map-btn"
+                    title="Center on my location"
+                  >
+                    <svg
+                      width="18"
+                      height="18"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                    >
+                      <circle cx="12" cy="12" r="3" />
+                      <path d="M12 2v4M12 18v4M2 12h4M18 12h4" />
+                    </svg>
+                  </button>
+                </div>
+                <div id="route-map" class="route-map"></div>
+              </div>
+            </section>
+
+            <!-- TAB: Stops & Students -->
+            <section class="tab-content" id="tab-stops">
+              <div class="content-header">
+                <h1>Stops & Students</h1>
                 <p class="subtitle">Tap a stop to view students</p>
               </div>
-              <span class="badge-count" id="stops-count">-</span>
+              <div class="stops-count-header">
+                <span>Total stops</span>
+                <span class="badge-count" id="stops-count">-</span>
+              </div>
+              <div id="stops-list" class="stops-list"></div>
+            </section>
+
+            <!-- TAB: Trip Control -->
+            <section class="tab-content" id="tab-trip">
+              <div class="content-header">
+                <h1>Trip Control</h1>
+                <p class="subtitle">Manage your current trip</p>
+              </div>
+
+              <!-- Trip Status Card -->
+              <div class="card trip-detail-card" id="trip-detail-card">
+                <div class="trip-detail-idle" id="trip-detail-idle">
+                  <div class="trip-detail-icon">🚌</div>
+                  <h3>No Active Trip</h3>
+                  <p>
+                    Start a trip from the Dashboard tab or use the button below
+                  </p>
+                  <button class="btn-start-trip-lg" id="start-trip-btn-alt">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                      <polygon
+                        points="5 3 19 12 5 21 5 3"
+                        fill="currentColor"
+                      />
+                    </svg>
+                    Start New Trip
+                  </button>
+                </div>
+                <div class="trip-detail-active hidden" id="trip-detail-active">
+                  <div class="trip-detail-status">
+                    <div class="trip-active-dot-lg"></div>
+                    <span>Trip in Progress</span>
+                  </div>
+                  <div class="trip-detail-grid">
+                    <div class="trip-detail-item">
+                      <span class="trip-detail-label">Type</span>
+                      <span class="trip-detail-value" id="trip-detail-type"
+                        >-</span
+                      >
+                    </div>
+                    <div class="trip-detail-item">
+                      <span class="trip-detail-label">Duration</span>
+                      <span class="trip-detail-value" id="trip-detail-timer"
+                        >00:00:00</span
+                      >
+                    </div>
+                    <div class="trip-detail-item">
+                      <span class="trip-detail-label">GPS Status</span>
+                      <span class="trip-detail-value" id="trip-detail-gps"
+                        >Acquiring...</span
+                      >
+                    </div>
+                    <div class="trip-detail-item">
+                      <span class="trip-detail-label">Stops Visited</span>
+                      <span class="trip-detail-value" id="trip-detail-stops"
+                        >0 / -</span
+                      >
+                    </div>
+                  </div>
+                  <button class="btn-end-trip-lg" id="end-trip-btn-alt">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                      <rect
+                        x="3"
+                        y="3"
+                        width="18"
+                        height="18"
+                        rx="2"
+                        fill="currentColor"
+                      />
+                    </svg>
+                    End Trip
+                  </button>
+                </div>
+              </div>
+            </section>
+
+            <!-- TAB: SOS / Report -->
+            <section class="tab-content" id="tab-sos">
+              <div class="content-header">
+                <h1>SOS / Report</h1>
+                <p class="subtitle">Report emergencies or vehicle issues</p>
+              </div>
+
+              <!-- SOS Quick Actions -->
+              <div class="sos-grid">
+                <button class="sos-card sos-emergency" id="sos-emergency-btn">
+                  <div class="sos-card-icon">🚨</div>
+                  <div class="sos-card-title">Emergency SOS</div>
+                  <div class="sos-card-desc">Immediate danger or emergency</div>
+                </button>
+
+                <button class="sos-card sos-breakdown" id="sos-breakdown-btn">
+                  <div class="sos-card-icon">🔧</div>
+                  <div class="sos-card-title">Breakdown</div>
+                  <div class="sos-card-desc">
+                    Vehicle breakdown or mechanical issue
+                  </div>
+                </button>
+
+                <button class="sos-card sos-deviation" id="sos-deviation-btn">
+                  <div class="sos-card-icon">↗️</div>
+                  <div class="sos-card-title">Route Deviation</div>
+                  <div class="sos-card-desc">
+                    Forced to take alternate route
+                  </div>
+                </button>
+
+                <button class="sos-card sos-other" id="sos-other-btn">
+                  <div class="sos-card-icon">⚠️</div>
+                  <div class="sos-card-title">Other Issue</div>
+                  <div class="sos-card-desc">Report any other concern</div>
+                </button>
+              </div>
+
+              <!-- SOS History -->
+              <div class="sos-history-section">
+                <h3>Recent Reports</h3>
+                <div id="sos-history" class="sos-history">
+                  <p class="text-muted">Loading history...</p>
+                </div>
+              </div>
+            </section>
+          </div>
+        </div>
+
+        <!-- Start Trip Modal -->
+        <div class="modal" id="start-trip-modal">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h2>Start Trip</h2>
+              <button class="modal-close" id="close-start-modal">
+                &times;
+              </button>
             </div>
-            <div id="stops-list" class="stops-list">
-              <!-- Populated by route-view.js -->
+            <div class="modal-body">
+              <p class="modal-desc">Select the trip type to begin</p>
+              <div class="trip-type-options">
+                <button class="trip-type-btn" data-type="pickup">
+                  <span class="trip-type-icon">⬆️</span>
+                  <span class="trip-type-name">Pickup</span>
+                  <span class="trip-type-desc"
+                    >Pick up students from stops</span
+                  >
+                </button>
+                <button class="trip-type-btn" data-type="drop">
+                  <span class="trip-type-icon">⬇️</span>
+                  <span class="trip-type-name">Drop</span>
+                  <span class="trip-type-desc">Drop students at stops</span>
+                </button>
+              </div>
             </div>
           </div>
-        </main>
+        </div>
+
+        <!-- End Trip Modal -->
+        <div class="modal" id="end-trip-modal">
+          <div class="modal-content modal-sm">
+            <div class="modal-header">
+              <h2>End Trip</h2>
+              <button class="modal-close" id="close-end-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+              <p class="modal-desc">
+                Are you sure you want to end this trip? This will stop GPS
+                tracking.
+              </p>
+            </div>
+            <div class="modal-footer">
+              <button class="btn-secondary" id="cancel-end-btn">Cancel</button>
+              <button class="btn-end-confirm" id="confirm-end-btn">
+                End Trip
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- SOS Detail Modal -->
+        <div class="modal" id="sos-modal">
+          <div class="modal-content">
+            <div class="modal-header sos-modal-header">
+              <h2 id="sos-modal-title">Report Issue</h2>
+              <button class="modal-close" id="close-sos-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+              <div class="sos-type-display" id="sos-type-display">
+                <span class="sos-type-icon" id="sos-type-icon">🚨</span>
+                <span class="sos-type-name" id="sos-type-name">Emergency</span>
+              </div>
+
+              <div class="form-group">
+                <label for="sos-severity">Severity</label>
+                <div class="severity-options">
+                  <button class="severity-btn" data-severity="low">
+                    <span class="severity-dot severity-low"></span>Low
+                  </button>
+                  <button class="severity-btn" data-severity="medium">
+                    <span class="severity-dot severity-medium"></span>Medium
+                  </button>
+                  <button class="severity-btn active" data-severity="high">
+                    <span class="severity-dot severity-high"></span>High
+                  </button>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label for="sos-description">Description (optional)</label>
+                <textarea
+                  id="sos-description"
+                  class="form-textarea"
+                  rows="3"
+                  placeholder="Describe the issue..."
+                ></textarea>
+              </div>
+
+              <div class="sos-location-info" id="sos-location-info">
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                  <circle cx="12" cy="10" r="3" />
+                </svg>
+                <span id="sos-location-text">Getting location...</span>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button class="btn-secondary" id="cancel-sos-btn">Cancel</button>
+              <button class="btn-sos-send" id="send-sos-btn">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                  <path
+                    d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"
+                    fill="currentColor"
+                  />
+                </svg>
+                Send Alert
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- SOS Sent Confirmation -->
+        <div class="modal" id="sos-confirm-modal">
+          <div class="modal-content modal-sm">
+            <div class="modal-body sos-confirm-body">
+              <div class="sos-confirm-icon">✅</div>
+              <h3>Alert Sent</h3>
+              <p>
+                Your report has been submitted. The admin team has been
+                notified.
+              </p>
+              <button class="btn-primary-full" id="sos-confirm-ok">OK</button>
+            </div>
+          </div>
+        </div>
       </div>
     </template>
 
@@ -241,8 +784,11 @@
     <div id="app"></div>
 
     <!-- Scripts -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="assets/js/api.js"></script>
     <script src="assets/js/login.js"></script>
+    <script src="assets/js/gps.js"></script>
+    <script src="assets/js/navigation.js"></script>
     <script src="assets/js/route-view.js"></script>
     <script src="assets/js/app.js"></script>
   </head>
