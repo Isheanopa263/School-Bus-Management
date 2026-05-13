@@ -1,292 +1,313 @@
 const express = require("express");
 const db = require("../db");
-const { requireAuth, requireRole } = require("../middleware/auth");
 const { Parser } = require("json2csv");
 const PDFDocument = require("pdfkit");
-
 const router = express.Router();
 
-/**
- * GET /api/reports/trips - Trip summary report
- * Query: ?from=2026-01-01&to=2026-01-31&route_id=UUID&format=csv
- */
-router.get("/trips", requireAuth, requireRole(["admin"]), async (req, res) => {
-  const { from, to, route_id, format = "json" } = req.query;
+function handleExport(res, rows, filename, format) {
+  if (format === "csv") {
+    const parser = new Parser();
+    const csv = parser.parse(rows);
+    res.header("Content-Type", "text/csv");
+    res.attachment(`${filename}.csv`);
+    return res.send(csv);
+  }
+  if (format === "pdf") {
+    const doc = new PDFDocument({ margin: 30, size: "A4" });
+    res.header("Content-Type", "application/pdf");
+    res.attachment(`${filename}.pdf`);
+    doc.pipe(res);
+    doc.fontSize(16).text(filename.replace(/-/g, " "), { align: "center" });
+    doc.moveDown(2);
+    doc.fontSize(8);
+    rows.slice(0, 100).forEach((row) => {
+      const text = Object.entries(row)
+        .map(([k, v]) => `${k}: ${v ?? ""}`)
+        .join(" | ");
+      doc.text(text.substring(0, 90));
+      doc.moveDown(0.3);
+      if (doc.y > 750) doc.addPage();
+    });
+    doc.end();
+    return;
+  }
+  res.json({ report: rows, count: rows.length });
+}
 
+// TRIPS
+router.get("/trips", async (req, res) => {
   try {
+    const { from, to, route_id, format } = req.query;
     let query = `
       SELECT 
-        t.id as trip_id,
-        t.trip_date,
-        t.trip_type,
-        t.status,
-        t.start_time,
-        t.end_time,
-        t.delay_minutes,
+        t.trip_date::date as trip_date,
         r.name as route_name,
         b.registration_number as bus_number,
         u.full_name as driver_name,
-        COUNT(te.id) as event_count
+        t.trip_type,
+        t.status,
+        COALESCE(t.delay_minutes, 0) as delay_minutes
       FROM trips t
       JOIN route_assignments ra ON t.assignment_id = ra.id
       JOIN routes r ON ra.route_id = r.rid
       JOIN buses b ON ra.bus_id = b.bid
       JOIN drivers d ON ra.driver_id = d.id
       JOIN users u ON d.userid = u.userid
-      LEFT JOIN trip_events te ON t.id = te.trip_id
+      WHERE 1=1
     `;
     const params = [];
-    const conditions = [];
-
     if (from) {
-      conditions.push(`t.trip_date >= $${params.length + 1}`);
       params.push(from);
+      query += ` AND t.trip_date >= $${params.length}`;
     }
     if (to) {
-      conditions.push(`t.trip_date <= $${params.length + 1}`);
       params.push(to);
+      query += ` AND t.trip_date <= $${params.length}`;
     }
     if (route_id) {
-      conditions.push(`r.rid = $${params.length + 1}`);
       params.push(route_id);
+      query += ` AND r.rid = $${params.length}`;
     }
-
-    if (conditions.length) query += " WHERE " + conditions.join(" AND ");
-    query +=
-      " GROUP BY t.id, r.name, b.registration_number, u.full_name ORDER BY t.trip_date DESC";
-
+    query += ` ORDER BY t.trip_date DESC LIMIT 1000`;
     const { rows } = await db.query(query, params);
-
-    if (format === "csv") {
-      const parser = new Parser();
-      const csv = parser.parse(rows);
-      res.header("Content-Type", "text/csv");
-      res.attachment("trips_report.csv");
-      return res.send(csv);
-    }
-
-    if (format === "pdf") {
-      const doc = new PDFDocument({ margin: 30, size: "A4" });
-      res.setHeader("Content-Type", "application/pdf");
-      res.setHeader(
-        "Content-Disposition",
-        "attachment; filename=trips_report.pdf",
-      );
-      doc.pipe(res);
-
-      doc.fontSize(18).text("Trip Summary Report", { align: "center" });
-      doc.moveDown();
-      doc.fontSize(10).text(`Period: ${from || "All"} to ${to || "All"}`);
-      doc.moveDown();
-
-      rows.forEach((t) => {
-        doc
-          .fontSize(12)
-          .text(`${t.trip_date} - ${t.route_name} - ${t.trip_type}`);
-        doc
-          .fontSize(9)
-          .text(
-            `Bus: ${t.bus_number} | Driver: ${t.driver_name} | Status: ${t.status}`,
-          );
-        doc.text(
-          `Delay: ${t.delay_minutes || 0} min | Events: ${t.event_count}`,
-        );
-        doc.moveDown(0.5);
-      });
-
-      doc.end();
-      return;
-    }
-
-    res.json({ report: rows, count: rows.length });
+    handleExport(res, rows, `trips-report-${from}-to-${to}`, format);
   } catch (err) {
-    console.error("Trips report error:", err);
-    res.status(500).json({ error: "Failed to generate report" });
+    console.error("Trips error:", err);
+    res.status(500).json({ error: err.message });
   }
 });
 
-/**
- * GET /api/reports/delays - Delay analysis
- */
-router.get("/delays", requireAuth, requireRole(["admin"]), async (req, res) => {
-  const { from, to, format = "json" } = req.query;
-
+// DELAYS
+router.get("/delays", async (req, res) => {
   try {
+    const { from, to, format } = req.query;
     const { rows } = await db.query(
-      `SELECT 
+      `
+      SELECT 
         r.name as route_name,
         COUNT(*) as total_trips,
-        AVG(t.delay_minutes) as avg_delay,
-        MAX(t.delay_minutes) as max_delay,
+        ROUND(AVG(COALESCE(t.delay_minutes, 0)), 2) as avg_delay,
+        MAX(COALESCE(t.delay_minutes, 0)) as max_delay,
         COUNT(CASE WHEN t.delay_minutes > 10 THEN 1 END) as delayed_trips
-       FROM trips t
-       JOIN route_assignments ra ON t.assignment_id = ra.id
-       JOIN routes r ON ra.route_id = r.rid
-       WHERE ($1::date IS NULL OR t.trip_date >= $1)
-         AND ($2::date IS NULL OR t.trip_date <= $2)
-         AND t.status = 'completed'
-       GROUP BY r.name
-       ORDER BY avg_delay DESC`,
+      FROM trips t
+      JOIN route_assignments ra ON t.assignment_id = ra.id
+      JOIN routes r ON ra.route_id = r.rid
+      WHERE t.status = 'completed'
+        AND ($1::date IS NULL OR t.trip_date >= $1)
+        AND ($2::date IS NULL OR t.trip_date <= $2)
+      GROUP BY r.name
+      ORDER BY avg_delay DESC
+    `,
       [from || null, to || null],
     );
-
-    if (format === "csv") {
-      const parser = new Parser();
-      const csv = parser.parse(rows);
-      res.header("Content-Type", "text/csv");
-      res.attachment("delays_report.csv");
-      return res.send(csv);
-    }
-
-    res.json({ report: rows });
+    handleExport(res, rows, "delays-report", format);
   } catch (err) {
-    console.error("Delays report error:", err);
-    res.status(500).json({ error: "Failed to generate report" });
+    console.error("Delays error:", err);
+    res.status(500).json({ error: err.message });
   }
 });
 
-/**
- * GET /api/reports/tickets - Ticket summary
- */
-router.get(
-  "/tickets",
-  requireAuth,
-  requireRole(["admin"]),
-  async (req, res) => {
-    const { from, to, status, format = "json" } = req.query;
-
-    try {
-      let query = `
+// DRIVER HOURS - Fixed u.userid
+router.get("/driver-hours", async (req, res) => {
+  const { from, to, period = "week", format } = req.query;
+  try {
+    const { rows } = await db.query(
+      `
       SELECT 
-        t.id,
-        t.category,
-        t.priority,
-        t.status,
-        t.created_at,
-        t.resolved_at,
-        u.full_name as raised_by,
-        r.name as route_name
-      FROM tickets t
-      JOIN users u ON t.raised_by = u.userid
-      LEFT JOIN trips trip ON t.trip_id = trip.id
-      LEFT JOIN route_assignments ra ON trip.assignment_id = ra.id
-      LEFT JOIN routes r ON ra.route_id = r.rid
-    `;
-      const params = [];
-      const conditions = [];
+        u.userid as driver_id,
+        u.full_name as driver_name,
+        DATE_TRUNC($3, t.trip_date) as period_start,
+        COUNT(t.id) as trips_count,
+        ROUND(SUM(EXTRACT(EPOCH FROM (t.end_time - t.start_time))/3600), 2) as total_hours
+      FROM trips t
+      JOIN route_assignments ra ON t.assignment_id = ra.id
+      JOIN drivers d ON ra.driver_id = d.id
+      JOIN users u ON d.userid = u.userid
+      WHERE t.status = 'completed' AND t.end_time IS NOT NULL
+        AND ($1::date IS NULL OR t.trip_date >= $1)
+        AND ($2::date IS NULL OR t.trip_date <= $2)
+      GROUP BY u.userid, u.full_name, DATE_TRUNC($3, t.trip_date)
+      ORDER BY period_start DESC, total_hours DESC
+    `,
+      [from || null, to || null, period],
+    );
+    handleExport(res, rows, "driver-hours-report", format);
+  } catch (err) {
+    console.error("Driver hours error:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
 
-      if (from) {
-        conditions.push(`t.created_at >= $${params.length + 1}`);
-        params.push(from);
-      }
-      if (to) {
-        conditions.push(`t.created_at <= $${params.length + 1}`);
-        params.push(to);
-      }
-      if (status) {
-        conditions.push(`t.status = $${params.length + 1}`);
-        params.push(status);
-      }
+// BUS UTILIZATION - Fixed date math
+router.get("/bus-utilization", async (req, res) => {
+  const { from, to, format } = req.query;
+  try {
+    const { rows } = await db.query(
+      `
+      WITH date_range AS (
+        SELECT 
+          COALESCE($1::date, CURRENT_DATE - INTERVAL '30 days') as start_date,
+          COALESCE($2::date, CURRENT_DATE) as end_date
+      ),
+      total_days AS (
+        SELECT (DATE_PART('day', end_date - start_date) + 1)::int as days FROM date_range
+      ),
+      bus_hours AS (
+        SELECT 
+          b.bid,
+          b.registration_number,
+          b.capacity,
+          COALESCE(SUM(EXTRACT(EPOCH FROM (t.end_time - t.start_time))/3600), 0) as scheduled_hours,
+          COUNT(DISTINCT t.id) as trips_assigned
+        FROM buses b
+        LEFT JOIN route_assignments ra ON b.bid = ra.bus_id
+        LEFT JOIN trips t ON ra.id = t.assignment_id 
+          AND t.status = 'completed' AND t.end_time IS NOT NULL
+          AND ($1::date IS NULL OR t.trip_date >= $1)
+          AND ($2::date IS NULL OR t.trip_date <= $2)
+        WHERE b.status = 'active'
+        GROUP BY b.bid, b.registration_number, b.capacity
+      )
+      SELECT 
+        *,
+        ROUND((scheduled_hours / (24 * (SELECT days FROM total_days))) * 100, 2) as utilization_percent
+      FROM bus_hours
+      ORDER BY utilization_percent DESC
+    `,
+      [from || null, to || null],
+    );
+    handleExport(res, rows, "bus-utilization-report", format);
+  } catch (err) {
+    console.error("Bus utilization error:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
 
-      if (conditions.length) query += " WHERE " + conditions.join(" AND ");
-      query += " ORDER BY t.created_at DESC";
-
-      const { rows } = await db.query(query, params);
-
-      if (format === "csv") {
-        const parser = new Parser();
-        const csv = parser.parse(rows);
-        res.header("Content-Type", "text/csv");
-        res.attachment("tickets_report.csv");
-        return res.send(csv);
-      }
-
-      res.json({ report: rows, count: rows.length });
-    } catch (err) {
-      console.error("Tickets report error:", err);
-      res.status(500).json({ error: "Failed to generate report" });
-    }
-  },
-);
-
-/**
- * GET /api/reports/attendance - Student attendance per route
- * Based on bus_requests status
- */
-router.get(
-  "/attendance",
-  requireAuth,
-  requireRole(["admin"]),
-  async (req, res) => {
-    const { from, to, route_id, format = "json" } = req.query;
-
-    try {
-      const { rows } = await db.query(
-        `SELECT 
+// ON-TIME PERFORMANCE
+router.get("/on-time-performance", async (req, res) => {
+  const { from, to, route_id, format } = req.query;
+  try {
+    const { rows } = await db.query(
+      `
+      SELECT 
         r.name as route_name,
-        COUNT(DISTINCT s.sid) as total_students,
-        COUNT(DISTINCT CASE WHEN br.status = 'approved' THEN s.sid END) as approved_students,
-        COUNT(DISTINCT CASE WHEN br.status = 'pending' THEN s.sid END) as pending_requests
-       FROM routes r
-       LEFT JOIN stops st ON st.route_id = r.rid
-       LEFT JOIN students s ON s.assigned_stop_id = st.id
-       LEFT JOIN bus_requests br ON br.student_id = s.sid
-         AND ($1::date IS NULL OR br.created_at >= $1)
-         AND ($2::date IS NULL OR br.created_at <= $2)
-       WHERE ($3::uuid IS NULL OR r.rid = $3)
-       GROUP BY r.rid, r.name
-       ORDER BY r.name`,
-        [from || null, to || null, route_id || null],
-      );
+        u.full_name as driver_name,
+        COUNT(*) as total_trips,
+        COUNT(CASE WHEN t.delay_minutes <= 5 THEN 1 END) as on_time_trips,
+        COUNT(CASE WHEN t.delay_minutes > 5 AND t.delay_minutes <= 15 THEN 1 END) as minor_delay,
+        COUNT(CASE WHEN t.delay_minutes > 15 THEN 1 END) as major_delay,
+        ROUND(AVG(COALESCE(t.delay_minutes, 0)), 2) as avg_delay_minutes,
+        ROUND((COUNT(CASE WHEN t.delay_minutes <= 5 THEN 1 END)::decimal / NULLIF(COUNT(*), 0)) * 100, 2) as on_time_percent
+      FROM trips t
+      JOIN route_assignments ra ON t.assignment_id = ra.id
+      JOIN routes r ON ra.route_id = r.rid
+      JOIN drivers d ON ra.driver_id = d.id
+      JOIN users u ON d.userid = u.userid
+      WHERE t.status = 'completed'
+        AND ($1::date IS NULL OR t.trip_date >= $1)
+        AND ($2::date IS NULL OR t.trip_date <= $2)
+        AND ($3::uuid IS NULL OR r.rid = $3)
+      GROUP BY r.name, u.full_name
+      ORDER BY on_time_percent ASC
+    `,
+      [from || null, to || null, route_id || null],
+    );
+    handleExport(res, rows, "on-time-performance-report", format);
+  } catch (err) {
+    console.error("On-time performance error:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
 
-      if (format === "csv") {
-        const parser = new Parser();
-        const csv = parser.parse(rows);
-        res.header("Content-Type", "text/csv");
-        res.attachment("attendance_report.csv");
-        return res.send(csv);
-      }
+// ROUTE EFFICIENCY
+router.get("/route-efficiency", async (req, res) => {
+  const { from, to, format } = req.query;
+  try {
+    const { rows } = await db.query(
+      `
+      SELECT 
+        r.rid,
+        r.name as route_name,
+        r.total_distance_km as distance_km,
+        COUNT(DISTINCT t.id) as total_trips,
+        ROUND(AVG(EXTRACT(EPOCH FROM (t.end_time - t.start_time))/60), 2) as avg_trip_mins
+      FROM routes r
+      LEFT JOIN route_assignments ra ON r.rid = ra.route_id
+      LEFT JOIN trips t ON ra.id = t.assignment_id 
+        AND t.status = 'completed' AND t.end_time IS NOT NULL
+        AND ($1::date IS NULL OR t.trip_date >= $1)
+        AND ($2::date IS NULL OR t.trip_date <= $2)
+      WHERE r.is_active = true
+      GROUP BY r.rid, r.name, r.total_distance_km
+      ORDER BY total_trips DESC
+    `,
+      [from || null, to || null],
+    );
+    handleExport(res, rows, "route-efficiency-report", format);
+  } catch (err) {
+    console.error("Route efficiency error:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
 
-      res.json({ report: rows });
-    } catch (err) {
-      console.error("Attendance report error:", err);
-      res.status(500).json({ error: "Failed to generate report" });
-    }
-  },
-);
+// STUDENT LOAD
+router.get("/student-load", async (req, res) => {
+  const { route_id, format } = req.query;
+  try {
+    const { rows } = await db.query(
+      `
+      SELECT 
+        r.name as route_name,
+        st.name as stop_name,
+        st.sequence_number as stop_order,
+        COUNT(DISTINCT s.sid) as students_assigned
+      FROM routes r
+      LEFT JOIN stops st ON st.route_id = r.rid
+      LEFT JOIN students s ON s.assigned_stop_id = st.id
+      WHERE ($1::uuid IS NULL OR r.rid = $1)
+      GROUP BY r.rid, r.name, st.id, st.name, st.sequence_number
+      ORDER BY r.name, st.sequence_number
+    `,
+      [route_id || null],
+    );
+    handleExport(res, rows, "student-load-report", format);
+  } catch (err) {
+    console.error("Student load error:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
 
-/**
- * GET /api/reports/gps-trail/:trip_id - Export GPS trail as CSV
- */
-router.get(
-  "/gps-trail/:trip_id",
-  requireAuth,
-  requireRole(["admin"]),
-  async (req, res) => {
-    try {
-      const { rows } = await db.query(
-        `SELECT 
-        recorded_at,
-        ST_Y(location) as latitude,
-        ST_X(location) as longitude,
-        speed_kmh,
-        heading
-       FROM live_locations
-       WHERE trip_id = $1
-       ORDER BY recorded_at ASC`,
-        [req.params.trip_id],
-      );
-
-      const parser = new Parser();
-      const csv = parser.parse(rows);
-      res.header("Content-Type", "text/csv");
-      res.attachment(`gps_trail_${req.params.trip_id}.csv`);
-      res.send(csv);
-    } catch (err) {
-      console.error("GPS trail report error:", err);
-      res.status(500).json({ error: "Failed to generate report" });
-    }
-  },
-);
+// COMPLAINTS SUMMARY
+router.get("/complaints-summary", async (req, res) => {
+  const { from, to, format } = req.query;
+  try {
+    const { rows } = await db.query(
+      `
+      SELECT 
+        c.category,
+        c.priority,
+        c.status,
+        COUNT(*) as total_count,
+        COUNT(CASE WHEN c.status = 'resolved' THEN 1 END) as resolved_count,
+        ROUND(AVG(
+          CASE WHEN c.status = 'resolved' AND c.resolved_at IS NOT NULL
+            THEN EXTRACT(EPOCH FROM (c.resolved_at - c.created_at))/3600 
+          END
+        ), 2) as avg_resolution_hours,
+        COUNT(CASE WHEN c.status = 'open' AND c.created_at < NOW() - INTERVAL '7 days' THEN 1 END) as overdue_count
+      FROM complaints c
+      WHERE ($1::date IS NULL OR c.created_at >= $1)
+        AND ($2::date IS NULL OR c.created_at <= $2)
+      GROUP BY c.category, c.priority, c.status
+      ORDER BY total_count DESC
+    `,
+      [from || null, to || null],
+    );
+    handleExport(res, rows, "complaints-summary-report", format);
+  } catch (err) {
+    console.error("Complaints summary error:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
 
 module.exports = router;

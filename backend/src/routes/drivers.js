@@ -116,4 +116,69 @@ router.put("/:id", requireAuth, requireRole(["admin"]), async (req, res) => {
   }
 });
 
+/**
+ * DELETE /api/drivers/:id - Admin only
+ * Soft deletes driver and deactivates user account
+ */
+router.delete("/:id", requireAuth, requireRole(["admin"]), async (req, res) => {
+  const { id } = req.params;
+  const client = await db.pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    // Get userid first
+    const driverResult = await client.query(
+      "SELECT userid FROM drivers WHERE id = $1",
+      [id],
+    );
+
+    if (driverResult.rows.length === 0) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ error: "Driver not found" });
+    }
+
+    const userid = driverResult.rows[0].userid;
+
+    // Soft delete driver
+    await client.query(
+      `DELETE FROM drivers
+       WHERE id = $1`,
+      [id],
+    );
+
+    // Deactivate user account
+    await client.query("UPDATE users SET is_active = false WHERE userid = $1", [
+      userid,
+    ]);
+
+    await client.query("COMMIT");
+    res.status(204).send();
+  } catch (err) {
+    await client.query("ROLLBACK");
+    console.error("Delete driver error:", err);
+    res.status(500).json({ error: "Failed to delete driver" });
+  } finally {
+    client.release();
+  }
+});
+
+router.get("/", requireAuth, async (req, res) => {
+  try {
+    const result = await db.query(`
+      SELECT 
+        d.id, 
+        u.full_name as name, 
+        d.license_number 
+      FROM drivers d 
+      JOIN users u ON d.userid = u.userid 
+      WHERE d.employment_status = 'active'
+    `);
+    res.json({ drivers: result.rows });
+  } catch (err) {
+    console.error("Get drivers error:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;

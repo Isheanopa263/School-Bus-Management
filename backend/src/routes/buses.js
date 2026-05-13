@@ -51,7 +51,6 @@ router.get(
       FROM buses b
       LEFT JOIN drivers d ON b.bid = d.current_bus_id
       LEFT JOIN users u ON d.userid = u.userid
-      WHERE b.status = 'active'
       ORDER BY b.registration_number
     `);
       res.json({ buses: rows });
@@ -90,6 +89,72 @@ router.put("/:id", requireAuth, requireRole(["admin"]), async (req, res) => {
   } catch (err) {
     console.error("Update bus error:", err);
     res.status(500).json({ error: "Failed to update bus" });
+  }
+});
+
+/**
+ * DELETE /api/buses/:id - Admin only
+ */
+router.delete("/:id", requireAuth, requireRole(["admin"]), async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const { rows } = await db.query(
+      `DELETE FROM buses WHERE bid = $1 RETURNING *`,
+      [id],
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ error: "Bus not found" });
+    }
+    res.json({ message: "Bus deleted", bus: rows[0] });
+  } catch (err) {
+    console.error("Delete bus error:", err);
+    res.status(500).json({ error: "Failed to delete bus" });
+  }
+});
+
+/**
+ * GET /api/buses/:id - Get single bus
+ */
+router.get(
+  "/:id",
+  requireAuth,
+  requireRole(["admin", "driver"]),
+  async (req, res) => {
+    const { id } = req.params;
+    try {
+      const { rows } = await db.query(
+        `SELECT b.*,
+              d.license_number,
+              u.full_name as driver_name
+       FROM buses b
+       LEFT JOIN drivers d ON b.bid = d.current_bus_id
+       LEFT JOIN users u ON d.userid = u.userid
+       WHERE b.bid = $1`,
+        [id],
+      );
+
+      if (rows.length === 0) {
+        return res.status(404).json({ error: "Bus not found" });
+      }
+      res.json({ bus: rows[0] });
+    } catch (err) {
+      console.error("Get bus error:", err);
+      res.status(500).json({ error: "Failed to fetch bus" });
+    }
+  },
+);
+
+router.get("/", requireAuth, async (req, res) => {
+  try {
+    const result = await db.query(`
+      SELECT bid, registration_number, model, capacity 
+      FROM buses WHERE status = 'active'
+    `);
+    res.json({ buses: result.rows });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 

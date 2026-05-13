@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Live Tracking - Bus Tracking Admin</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    />
+    <link rel="stylesheet" href="assets/css/buses.css" />
+    <style>
+      .map-layout {
+        display: grid;
+        grid-template-columns: 1fr 320px;
+        gap: 20px;
+        height: calc(100vh - 180px);
+      }
+
+      .map-container {
+        padding: 0;
+        overflow: hidden;
+        border-radius: 12px;
+        border: 1px solid #e2e8f0;
+      }
+
+      #map {
+        width: 100%;
+        height: 100%;
+      }
+
+      .sidebar {
+        overflow-y: auto;
+      }
+
+      .sidebar h3 {
+        margin: 0 0 16px 0;
+        font-size: 16px;
+        font-weight: 600;
+      }
+
+      .trips-list {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      .trip-item {
+        padding: 14px;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.2s;
+        background: white;
+      }
+
+      .trip-item:hover {
+        border-color: #3b82f6;
+        background: #eff6ff;
+        transform: translateX(2px);
+      }
+
+      .trip-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 8px;
+      }
+
+      .trip-header strong {
+        font-size: 15px;
+        color: #0f172a;
+      }
+
+      .trip-details {
+        font-size: 13px;
+        color: #64748b;
+        line-height: 1.6;
+      }
+
+      .live-status {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 14px;
+        color: #64748b;
+        background: #f8fafc;
+        padding: 8px 16px;
+        border-radius: 8px;
+        border: 1px solid #e2e8f0;
+        font-weight: 500;
+      }
+
+      .status-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #ef4444;
+        transition: background 0.3s;
+      }
+
+      .status-dot.connected {
+        background: #22c55e;
+        box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.2);
+        animation: pulse 2s infinite;
+      }
+
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.6;
+        }
+      }
+
+      .bus-marker .bus-icon {
+        font-size: 28px;
+        text-align: center;
+        filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
+      }
+
+      .empty,
+      .loading {
+        text-align: center;
+        padding: 40px 20px;
+        color: #94a3b8;
+        font-size: 14px;
+      }
+
+      @media (max-width: 1024px) {
+        .map-layout {
+          grid-template-columns: 1fr;
+          height: auto;
+        }
+        #map {
+          height: 500px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <nav class="nav">
+      <div class="nav-container">
+        <div class="nav-brand">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+            <path
+              d="M4 16V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v10"
+              stroke="currentColor"
+              stroke-width="2"
+            />
+            <path
+              d="M4 16h16v2a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-2z"
+              fill="currentColor"
+            />
+          </svg>
+          <span>Bus Tracking</span>
+        </div>
+        <div class="nav-links">
+          <a href="./dashboard.html" class="nav-link">Dashboard</a>
+          <a href="./live-tracking.html" class="nav-link active"
+            >Live Tracking</a
+          >
+          <a href="./buses.html" class="nav-link">Buses</a>
+          <a href="./routes.html" class="nav-link">Routes</a>
+          <a href="./drivers.html" class="nav-link">Drivers</a>
+          <a href="./student-requests.html" class="nav-link">Requests</a>
+          <a href="./complaints.html" class="nav-link">Complaints</a>
+        </div>
+        <button id="logoutBtn" class="btn-logout">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+            <path
+              d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"
+              stroke="currentColor"
+              stroke-width="2"
+            />
+            <path
+              d="M16 17l5-5-5-5M21 12H9"
+              stroke="currentColor"
+              stroke-width="2"
+            />
+          </svg>
+          <span>Logout</span>
+        </button>
+      </div>
+    </nav>
+
+    <main class="main">
+      <div class="header">
+        <div>
+          <h1>Live Tracking</h1>
+          <p class="subtitle">Real-time bus locations and trip monitoring</p>
+        </div>
+        <div class="live-status">
+          <span class="status-dot" id="wsStatus"></span>
+          <span id="activeBusesCount">0 active buses</span>
+        </div>
+      </div>
+
+      <div class="map-layout">
+        <div class="card map-container">
+          <div id="map"></div>
+        </div>
+        <div class="card sidebar">
+          <h3>Active Trips</h3>
+          <div id="tripsList" class="trips-list">
+            <div class="loading">Loading trips...</div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <script src="assets/js/auth.js"></script>
+    <script src="assets/js/live-tracking.js"></script>
+  </body>
+</html>

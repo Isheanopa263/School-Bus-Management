@@ -1,0 +1,80 @@
+const express = require("express");
+const db = require("../db");
+const { requireAuth, requireRole } = require("../middleware/auth");
+
+const router = express.Router();
+
+/**
+ * GET /api/complaints - Admin: list all complaints
+ * Query:?status=open|in_progress|resolved|closed
+ */
+router.get("/", requireAuth, requireRole(["admin"]), async (req, res) => {
+  const { status } = req.query;
+  try {
+    let query = `
+      SELECT c.*,
+             u.full_name as raised_by_name,
+             u.role as raised_by_role,
+             d.license_number as driver_license,
+             b.registration_number as bus_number,
+             t.trip_date,
+             t.trip_type
+      FROM complaints c
+      LEFT JOIN users u ON c.raised_by = u.userid
+      LEFT JOIN drivers d ON c.driver_id = d.id
+      LEFT JOIN buses b ON c.bus_id = b.bid
+      LEFT JOIN trips t ON c.trip_id = t.id
+    `;
+    const params = [];
+
+    if (status) {
+      query += " WHERE c.status = $1";
+      params.push(status);
+    }
+
+    query += " ORDER BY c.created_at DESC";
+
+    const { rows } = await db.query(query, params);
+    res.json({ complaints: rows });
+  } catch (err) {
+    console.error("Get complaints error:", err);
+    res.status(500).json({ error: "Failed to fetch complaints" });
+  }
+});
+
+/**
+ * PUT /api/complaints/:id/resolve - Admin: update status + notes
+ */
+router.put(
+  "/:id/resolve",
+  requireAuth,
+  requireRole(["admin"]),
+  async (req, res) => {
+    const { id } = req.params;
+    const { status, resolution_notes, priority } = req.body;
+
+    try {
+      const { rows } = await db.query(
+        `UPDATE complaints
+       SET status = $1,
+           resolution_notes = $2,
+           priority = COALESCE($3, priority),
+           resolved_at = CASE WHEN $1 = 'resolved' THEN NOW() ELSE resolved_at END
+       WHERE id = $4
+       RETURNING *`,
+        [status, resolution_notes, priority, id],
+      );
+
+      if (rows.length === 0) {
+        return res.status(404).json({ error: "Complaint not found" });
+      }
+
+      res.json({ complaint: rows[0], message: "Complaint updated" });
+    } catch (err) {
+      console.error("Update complaint error:", err);
+      res.status(500).json({ error: "Failed to update complaint" });
+    }
+  },
+);
+
+module.exports = router;

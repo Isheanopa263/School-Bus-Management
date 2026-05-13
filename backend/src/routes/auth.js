@@ -6,7 +6,7 @@ const { requireAuth, requireRole } = require("../middleware/auth");
 
 const router = express.Router();
 
-const ALLOWED_ROLES = ["admin", "driver", "parent", "attendant"];
+const ALLOWED_ROLES = ["admin", "driver", "student"];
 
 /**
  * POST /api/auth/register

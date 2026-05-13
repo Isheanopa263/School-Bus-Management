@@ -1,7 +1,6 @@
 const path = require("path");
 const express = require("express");
 const cors = require("cors");
-const express = require("express");
 const http = require("http");
 const { initSocket } = require("./services/socket");
 require("./services/redis");
@@ -12,7 +11,17 @@ const app = express();
 const server = http.createServer(app);
 
 // Middleware
-app.use(cors());
+app.use(
+  cors({
+    origin: [
+      "http://127.0.0.1:5501",
+      "http://localhost:5501",
+      "http://localhost:3001",
+    ],
+    credentials: true,
+  }),
+);
+
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
 
@@ -24,12 +33,15 @@ app.use("/api/routes", require("./routes/routes"));
 app.use("/api/drivers", require("./routes/drivers"));
 app.use("/api/stops", require("./routes/stops"));
 app.use("/api/route-assignments", require("./routes/route-assignments"));
-app.use("/api/bus_requests", require("./routes/bus_requests"));
+app.use("/api/bus-requests", require("./routes/bus_requests"));
 app.use("/api/trips", require("./routes/trips"));
 app.use("/api/live-locations", require("./routes/live_locations"));
 app.use("/api/notifications", require("./routes/notifications"));
 app.use("/api/tickets", require("./routes/tickets"));
 app.use("/api/reports", require("./routes/reports"));
+app.use("/api/complaints", require("./routes/complaints"));
+app.use("/api/stats", require("./routes/stats"));
+app.use("/api/schedules", require("./routes/schedules"));
 
 // Health check
 app.get("/health", (req, res) => {

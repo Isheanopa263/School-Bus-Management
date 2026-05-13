@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Routes - BusTrack</title>
+  <link rel="stylesheet" href="assets/css/buses.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
+</head>
+<body>
+  <nav class="nav">
+    <div class="nav-container">
+      <div class="nav-brand">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+          <path d="M4 16V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v10" stroke="#6366f1" stroke-width="2"/>
+          <path d="M4 16h16v2a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-2z" fill="#6366f1"/>
+        </svg>
+        <span>BusTrack</span>
+      </div>
+      <div class="nav-links">
+        <a href="dashboard.html" class="nav-link">Live Map</a>
+        <a href="live-tracking.html" class="nav-link">Live Tracking</a>
+        <a href="buses.html" class="nav-link">Buses</a>
+        <a href="drivers.html" class="nav-link">Drivers</a>
+        <a href="student-requests.html" class="nav-link">Requests</a>
+        <a href="routes.html" class="nav-link active">Routes</a>
+        <a href="complaints.html" class="nav-link">Complaints</a>
+        <a href="reports.html" class="nav-link">Reports</a>
+      </div>
+      <button id="logoutBtn" class="btn-logout">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+            <path
+              d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"
+              stroke="currentColor"
+              stroke-width="2"
+            />
+            <path
+              d="M16 17l5-5-5-5M21 12H9"
+              stroke="currentColor"
+              stroke-width="2"
+            />
+          </svg>
+          <span>Logout</span>
+        </button>
+    </div>
+  </nav>
+
+  <main class="main">
+    <div class="header">
+      <div>
+        <h1>Route Management</h1>
+        <p class="subtitle">Create and manage bus routes with PostGIS</p>
+      </div>
+      <button id="addRouteBtn" class="btn-primary">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="12" y1="5" x2="12" y2="19"></line>
+          <line x1="5" y1="12" x2="19" y2="12"></line>
+        </svg>
+        Add Route
+      </button>
+    </div>
+<div class="card">
+    <div class="table-wrapper">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Route Name</th>
+            <th>Distance</th>
+            <th>Duration</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="routesTableBody">
+          <tr><td colspan="5" class="loading">Loading...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+
+  <!-- Route Modal with Map -->
+  <div id="routeModal" class="modal">
+    <div class="modal-content" style="max-width: 1000px;">
+      <div class="modal-header">
+        <h2 id="modalTitle">Add Route</h2>
+        <button class="close-btn" id="closeModal">&times;</button>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; padding: 24px;">
+        <!-- Left: Form -->
+        <div>
+          <form id="routeForm">
+            <input type="hidden" id="routeId">
+            <div class="form-group">
+              <label for="routeName">Route Name *</label>
+              <input type="text" id="routeName" placeholder="e.g. Peddapuram - Kakinada" required>
+            </div>
+            <div class="form-group">
+              <label for="routePath">Route Path (WKT)</label>
+              <textarea id="routePath" rows="4" placeholder="Click map to add points..." readonly></textarea>
+              <small style="color: var(--text-muted); font-size: 12px;">Auto-generated from map clicks</small>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="totalDistance">Distance (km)</label>
+                <input type="number" id="totalDistance" step="0.01" placeholder="Auto-calculated" readonly>
+              </div>
+              <div class="form-group">
+                <label for="estimatedDuration">Duration (min)</label>
+                <input type="number" id="estimatedDuration" placeholder="45">
+              </div>
+            <div style="display: flex; gap: 8px; margin-bottom: 16px;">
+              <button type="button" class="btn-secondary" id="clearPathBtn">Clear Path</button>
+              <button type="button" class="btn-secondary" id="undoPointBtn">Undo Last Point</button>
+            </div>
+            <div class="modal-actions" style="padding: 0; border: none;">
+              <button type="button" class="btn-secondary" id="cancelBtn">Cancel</button>
+              <button type="submit" class="btn-primary">Save Route</button>
+            </div>
+          </form>
+        </div>
+
+        <!-- Right: Map -->
+        <div>
+          <div class="map-instructions">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="12" y1="16" x2="12" y2="12"></line>
+              <line x1="12" y1="8" x2="12.01" y2="8"></line>
+            </svg>
+            Click to add points. Search for places above.
+          </div>
+          <div id="routeMap" style="height: 450px; border-radius: 8px; border: 1px solid var(--border);"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="assets/js/auth.js"></script>
+  <script src="assets/js/routes.js"></script>
+  <script>
+    requireAuth();
+  </script>
+</body>
+</html>

@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Complaints - Bus Tracking Admin</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="assets/css/buses.css" />
+  </head>
+  <body>
+    <nav class="nav">
+      <div class="nav-container">
+        <div class="nav-brand">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+            <path
+              d="M4 16V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v10"
+              stroke="currentColor"
+              stroke-width="2"
+            />
+            <path
+              d="M4 16h16v2a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-2z"
+              fill="currentColor"
+            />
+          </svg>
+          <span>Bus Tracking</span>
+        </div>
+        <div class="nav-links">
+          <a href="./dashboard.html" class="nav-link">Dashboard</a>
+          <a href="./live-tracking.html" class="nav-link">Live Tracking</a>
+          <a href="./buses.html" class="nav-link">Buses</a>
+          <a href="./routes.html" class="nav-link">Routes</a>
+          <a href="./drivers.html" class="nav-link">Drivers</a>
+          <a href="./student-requests.html" class="nav-link">Requests</a>
+          <a href="./complaints.html" class="nav-link active">Complaints</a>
+          <a href="./reports.html" class="nav-link">Reports</a>
+        </div>
+        <button id="logoutBtn" class="btn-logout">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+            <path
+              d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"
+              stroke="currentColor"
+              stroke-width="2"
+            />
+            <path
+              d="M16 17l5-5-5-5M21 12H9"
+              stroke="currentColor"
+              stroke-width="2"
+            />
+          </svg>
+          <span>Logout</span>
+        </button>
+      </div>
+    </nav>
+
+    <main class="main">
+      <div class="header">
+        <div>
+          <h1>Complaints</h1>
+          <p class="subtitle">Review and resolve issues</p>
+        </div>
+        <div class="filter-tabs">
+          <button class="tab-btn active" data-status="open">Open</button>
+          <button class="tab-btn" data-status="in_progress">In Progress</button>
+          <button class="tab-btn" data-status="resolved">Resolved</button>
+          <button class="tab-btn" data-status="">All</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="table-wrapper">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Raised By</th>
+                <th>Category</th>
+                <th>Bus/Driver</th>
+                <th>Priority</th>
+                <th>Description</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="complaintsTableBody">
+              <tr>
+                <td colspan="7" class="loading">Loading complaints...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+
+    <!-- Resolve Modal -->
+    <div id="resolveModal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>Resolve Complaint</h2>
+          <button class="modal-close" id="closeModal">&times;</button>
+        </div>
+        <form id="resolveForm">
+          <input type="hidden" id="complaintId" />
+
+          <div id="complaintDetails" class="request-info"></div>
+
+          <div class="form-group">
+            <label for="complaintStatus">Status *</label>
+            <select id="complaintStatus" required>
+              <option value="open">Open</option>
+              <option value="in_progress">In Progress</option>
+              <option value="resolved">Resolved</option>
+              <option value="closed">Closed</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="complaintPriority">Priority</label>
+            <select id="complaintPriority">
+              <option value="low">Low</option>
+              <option value="medium">Medium</option>
+              <option value="high">High</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="resolutionNotes">Resolution Notes</label>
+            <textarea
+              id="resolutionNotes"
+              rows="4"
+              placeholder="Describe the resolution or action taken..."
+            ></textarea>
+          </div>
+
+          <div class="modal-footer">
+            <button type="button" class="btn-secondary" id="cancelBtn">
+              Cancel
+            </button>
+            <button type="submit" class="btn-primary" id="saveBtn">
+              Update
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <script src="assets/js/auth.js"></script>
+    <script src="assets/js/complaints.js"></script>
+  </body>
+</html>
