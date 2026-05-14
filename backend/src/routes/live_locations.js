@@ -173,4 +173,40 @@ router.get("/trail/:trip_id", requireAuth, async (req, res) => {
   }
 });
 
+/**
+ * GET /api/live-locations/all-latest
+ * Returns latest location for ALL buses (dashboard map)
+ */
+router.get("/all-latest", requireAuth, async (req, res) => {
+  try {
+    const { rows } = await db.query(`
+      SELECT DISTINCT ON (ll.bus_id)
+        ll.bus_id,
+        ll.trip_id,
+        ll.speed_kmh,
+        ll.heading,
+        ST_X(ll.location::geometry) AS longitude,
+        ST_Y(ll.location::geometry) AS latitude,
+        ll.recorded_at,
+        b.registration_number AS bus_number,
+        r.name AS route_name,
+        u.full_name AS driver_name
+      FROM live_locations ll
+      JOIN buses b ON ll.bus_id = b.bid
+      LEFT JOIN trips t ON ll.trip_id = t.id
+      LEFT JOIN route_assignments ra ON t.assignment_id = ra.id
+      LEFT JOIN routes r ON ra.route_id = r.rid
+      LEFT JOIN drivers d ON ra.driver_id = d.id
+      LEFT JOIN users u ON d.userid = u.userid
+      WHERE ll.recorded_at > NOW() - INTERVAL '1 hour'
+      ORDER BY ll.bus_id, ll.recorded_at DESC
+    `);
+
+    res.json({ locations: rows });
+  } catch (err) {
+    console.error("Get all latest locations error:", err);
+    res.status(500).json({ error: "Failed to fetch locations" });
+  }
+});
+
 module.exports = router;

@@ -4,12 +4,8 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Login - BusTrack Admin</title>
-    <link rel="stylesheet" href="assets/css/main.css" />
+    <link rel="stylesheet" href="assets/css/base.css" />
     <link rel="stylesheet" href="assets/css/login.css" />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
-      rel="stylesheet"
-    />
   </head>
   <body>
     <div class="login-wrapper">
@@ -21,7 +17,7 @@
 
       <div class="login-card">
         <div class="login-header">
-          <div class="logo">
+          <div class="login-logo">
             <svg width="40" height="40" viewBox="0 0 24 24" fill="none">
               <path
                 d="M4 16V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v10"
@@ -88,7 +84,7 @@
                 type="password"
                 id="password"
                 name="password"
-                placeholder="••"
+                placeholder="••••••••"
                 required
                 autocomplete="current-password"
               />
@@ -97,7 +93,7 @@
 
           <div id="errorMessage" class="error-message"></div>
 
-          <button type="submit" class="btn-submit">
+          <button type="submit" class="btn-login" id="loginBtn">
             <span>Sign in</span>
             <svg
               width="20"

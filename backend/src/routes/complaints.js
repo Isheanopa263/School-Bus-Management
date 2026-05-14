@@ -54,14 +54,19 @@ router.put(
     const { status, resolution_notes, priority } = req.body;
 
     try {
+      // Fix: Cast $1 explicitly to varchar to avoid type conflict
       const { rows } = await db.query(
         `UPDATE complaints
-       SET status = $1,
-           resolution_notes = $2,
-           priority = COALESCE($3, priority),
-           resolved_at = CASE WHEN $1 = 'resolved' THEN NOW() ELSE resolved_at END
-       WHERE id = $4
-       RETURNING *`,
+         SET status           = $1::varchar,
+             resolution_notes = $2,
+             priority         = COALESCE($3::varchar, priority),
+             resolved_at      = CASE 
+                                  WHEN $1::varchar = 'resolved' 
+                                  THEN NOW() 
+                                  ELSE resolved_at 
+                                END
+         WHERE id = $4
+         RETURNING *`,
         [status, resolution_notes, priority, id],
       );
 

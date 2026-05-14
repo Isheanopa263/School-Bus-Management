@@ -1,113 +1,96 @@
-// assets/js/auth.js
+/**
+ * Auth handler for admin dashboard
+ * Login page: handles form submit
+ * Other pages: checks token, handles logout
+ */
+(function () {
+  const isLoginPage =
+    window.location.pathname.endsWith("index.html") ||
+    window.location.pathname.endsWith("/admin-dashboard/");
 
-const API_BASE_URL = "http://localhost:3000";
+  if (isLoginPage) {
+    // ── Login Page ────────────────────────────────────────────────────────
+    const token = localStorage.getItem("admin_token");
+    if (token) {
+      window.location.href = "dashboard.html";
+      return;
+    }
 
-// Check if user is logged in
-function requireAuth() {
-  const token = localStorage.getItem("token");
-  if (!token) {
-    window.location.href = "/admin-dashboard/index.html";
-    return false;
-  }
-  return true;
-}
+    const form = document.getElementById("loginForm");
+    if (!form) return;
 
-// API fetch wrapper with auth header
-async function apiFetch(endpoint, options = {}) {
-  const token = localStorage.getItem("token");
-
-  const headers = {
-    "Content-Type": "application/json",
-    ...options.headers,
-  };
-
-  if (token) {
-    headers["Authorization"] = `Bearer ${token}`;
-  }
-
-  const res = await fetch(`${API_BASE_URL}${endpoint}`, {
-    ...options,
-    headers,
-  });
-
-  const isLoginEndpoint = endpoint.includes("/api/auth/login");
-  const isOnLoginPage = window.location.pathname.includes("index.html");
-
-  if (res.status === 401 && !isLoginEndpoint && !isOnLoginPage) {
-    localStorage.removeItem("token");
-    window.location.href = "/admin-dashboard/index.html";
-    throw new Error("Unauthorized");
-  }
-
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: "Request failed" }));
-    throw new Error(err.error || `HTTP ${res.status}`);
-  }
-
-  return res.json();
-}
-
-// Logout
-function initLogout() {
-  const logoutBtn = document.getElementById("logoutBtn");
-  if (logoutBtn) {
-    logoutBtn.addEventListener("click", (e) => {
+    form.addEventListener("submit", async (e) => {
       e.preventDefault();
-      localStorage.removeItem("token");
-      localStorage.removeItem("user");
-      window.location.href = "/admin-dashboard/index.html";
+
+      const email = document.getElementById("email").value.trim();
+      const password = document.getElementById("password").value;
+      const errorEl = document.getElementById("errorMessage");
+      const btn = document.getElementById("loginBtn");
+
+      errorEl.classList.remove("show");
+
+      if (!email || !password) {
+        errorEl.textContent = "Email and password are required";
+        errorEl.classList.add("show");
+        return;
+      }
+
+      btn.disabled = true;
+      btn.innerHTML = `<span>Signing in...</span>`;
+
+      try {
+        const data = await apiFetch("/auth/login", {
+          method: "POST",
+          body: JSON.stringify({ email, password }),
+        });
+
+        if (data.user.role !== "admin") {
+          errorEl.textContent = "Access restricted to administrators";
+          errorEl.classList.add("show");
+          btn.disabled = false;
+          btn.innerHTML = `<span>Sign in</span>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="5" y1="12" x2="19" y2="12"/>
+              <polyline points="12 5 19 12 12 19"/>
+            </svg>`;
+          return;
+        }
+
+        localStorage.setItem("admin_token", data.token);
+        localStorage.setItem("admin_user", JSON.stringify(data.user));
+        window.location.href = "dashboard.html";
+      } catch (err) {
+        errorEl.textContent =
+          err.status === 401
+            ? "Invalid email or password"
+            : err.status === 0
+              ? "Cannot connect to server"
+              : "Login failed. Please try again.";
+        errorEl.classList.add("show");
+        btn.disabled = false;
+        btn.innerHTML = `<span>Sign in</span>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="5" y1="12" x2="19" y2="12"/>
+            <polyline points="12 5 19 12 12 19"/>
+          </svg>`;
+      }
     });
-  }
-}
-
-if (document.readyState === "loading") {
-  document.addEventListener("DOMContentLoaded", initLogout);
-} else {
-  initLogout();
-}
-
-// Handle login form submit
-document.getElementById("loginForm")?.addEventListener("submit", async (e) => {
-  e.preventDefault();
-
-  const errorEl = document.getElementById("errorMessage");
-  const btn = e.target.querySelector('button[type="submit"]');
-  const emailInput = document.getElementById("email");
-  const passwordInput = document.getElementById("password");
-
-  if (errorEl) {
-    errorEl.classList.remove("show");
-    errorEl.textContent = "";
-  }
-
-  const originalBtnHTML = btn.innerHTML;
-  btn.disabled = true;
-  btn.innerHTML = "<span>Signing in...</span>";
-
-  try {
-    const res = await apiFetch("/api/auth/login", {
-      method: "POST",
-      body: JSON.stringify({
-        email: emailInput.value.trim(),
-        password: passwordInput.value,
-      }),
-    });
-
-    localStorage.setItem("token", res.token);
-    if (res.user) {
-      localStorage.setItem("user", JSON.stringify(res.user));
+  } else {
+    // ── Protected Pages ───────────────────────────────────────────────────
+    const token = localStorage.getItem("admin_token");
+    if (!token) {
+      window.location.href = "index.html";
+      return;
     }
-    window.location.href = "/admin-dashboard/dashboard.html";
-  } catch (err) {
-    if (errorEl) {
-      errorEl.textContent = err.message || "Invalid email or password";
-      errorEl.classList.add("show");
+
+    // Logout button
+    const logoutBtn = document.getElementById("logoutBtn");
+    if (logoutBtn) {
+      logoutBtn.addEventListener("click", () => {
+        localStorage.removeItem("admin_token");
+        localStorage.removeItem("admin_user");
+        window.location.href = "index.html";
+      });
     }
-    btn.disabled = false;
-    btn.innerHTML = originalBtnHTML;
-    e.target.style.animation = "shake 0.3s";
-    setTimeout(() => {
-      e.target.style.animation = "";
-    }, 300);
   }
-});
+})();

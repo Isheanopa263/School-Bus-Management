@@ -1,153 +1,463 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Drivers - BusTrack</title>
-  <link rel="stylesheet" href="assets/css/buses.css">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-</head>
-<body>
-  <nav class="nav">
-    <div class="nav-container">
-      <div class="nav-brand">
-        <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
-          <path d="M4 16V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v10" stroke="#6366f1" stroke-width="2"/>
-          <path d="M4 16h16v2a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-2z" fill="#6366f1"/>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Drivers - BusTrack Admin</title>
+    <link rel="stylesheet" href="assets/css/base.css" />
+    <link rel="stylesheet" href="assets/css/drivers.css" />
+  </head>
+  <body>
+    <!-- Mobile Top Nav -->
+    <nav class="top-nav">
+      <button class="menu-toggle" id="menuToggle">
+        <svg
+          width="22"
+          height="22"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+        >
+          <line x1="3" y1="6" x2="21" y2="6" />
+          <line x1="3" y1="12" x2="21" y2="12" />
+          <line x1="3" y1="18" x2="21" y2="18" />
         </svg>
-        <span>BusTrack</span>
-      </div>
-      <div class="nav-links">
-        <a href="dashboard.html" class="nav-link">Live Map</a>
-        <a href="live-tracking.html" class="nav-link">Live Tracking</a>
-        <a href="buses.html" class="nav-link">Buses</a>
-        <a href="drivers.html" class="nav-link active">Drivers</a>
-        <a href="student-requests.html" class="nav-link">Requests</a>
-        <a href="routes.html" class="nav-link">Routes</a>
-        <a href="complaints.html" class="nav-link">Complaints</a>
-        <a href="reports.html" class="nav-link">Reports</a>
-      </div>
-      <button id="logoutBtn" class="btn-logout">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-            <path
-              d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"
-              stroke="currentColor"
-              stroke-width="2"
-            />
-            <path
-              d="M16 17l5-5-5-5M21 12H9"
-              stroke="currentColor"
-              stroke-width="2"
-            />
-          </svg>
-          <span>Logout</span>
-        </button>
-    </div>
-  </nav>
-
-  <main class="main">
-    <div class="header">
-      <div>
-        <h1>Driver Management</h1>
-        <p class="subtitle">Manage driver accounts and assignments</p>
-      </div>
-      <button id="addDriverBtn" class="btn-primary">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <line x1="12" y1="5" x2="12" y2="19"></line>
-          <line x1="5" y1="12" x2="19" y2="12"></line>
-        </svg>
-        Add Driver
       </button>
-    </div>
-    <div class="card">
-    <div class="table-wrapper">
-      <table class="table">
-        <thead>
-          <tr>
-            <th>Name</th>
-            <th>Phone</th>
-            <th>License No.</th>
-            <th>License Expiry</th>
-            <th>Assigned Bus</th>
-            <th>Status</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody id="driversTableBody">
-          <tr><td colspan="7" class="loading">Loading...</td></tr>
-        </tbody>
-      </table>
-    </div>
-  </main>
-
-  <!-- Driver Modal -->
-  <div id="driverModal" class="modal">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h2 id="modalTitle">Add Driver</h2>
-        <button class="close-btn" id="closeModal">&times;</button>
+      <div class="top-nav-brand">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+          <path
+            d="M4 16V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v10"
+            stroke="currentColor"
+            stroke-width="2"
+          />
+          <path
+            d="M4 16h16v2a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-2z"
+            fill="currentColor"
+          />
+        </svg>
+        <span>BusTrack Admin</span>
       </div>
-      <form id="driverForm">
-        <input type="hidden" id="driverId">
-        
-        <div class="form-section-title" id="accountSectionTitle">Account Details</div>
-        <div class="form-group">
-          <label for="fullName">Full Name *</label>
-          <input type="text" id="fullName" required>
-        </div>
-        <div class="form-row">
-          <div class="form-group">
-            <label for="email">Email</label>
-            <input type="email" id="email">
-          </div>
-          <div class="form-group">
-            <label for="phone">Phone *</label>
-            <input type="tel" id="phone" required placeholder="+91 98765 43210">
-          </div>
-        <div class="form-group" id="passwordGroup">
-          <label for="password">Password *</label>
-          <input type="password" id="password" minlength="8" placeholder="Min 8 characters">
-          <small class="form-hint">Required only when creating a new driver</small>
-        </div>
+    </nav>
 
-        <div class="form-section-title">Driver Details</div>
-        <div class="form-row">
-          <div class="form-group">
-            <label for="licenseNumber">License Number *</label>
-            <input type="text" id="licenseNumber" required>
+    <div class="app-layout">
+      <!-- Sidebar -->
+      <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+          <div class="sidebar-brand">
+            <div class="sidebar-brand-icon">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+                <path
+                  d="M4 16V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v10"
+                  stroke="#6366f1"
+                  stroke-width="2"
+                />
+                <path
+                  d="M4 16h16v2a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-2z"
+                  fill="#6366f1"
+                />
+                <circle cx="7.5" cy="16.5" r="1.5" fill="white" />
+                <circle cx="16.5" cy="16.5" r="1.5" fill="white" />
+              </svg>
+            </div>
+            <span class="sidebar-title">BusTrack</span>
           </div>
-          <div class="form-group">
-            <label for="licenseExpiry">License Expiry *</label>
-            <input type="date" id="licenseExpiry" required>
-          </div>
+          <button class="sidebar-collapse-btn" id="sidebarCollapse">
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <polyline points="15 18 9 12 15 6" />
+            </svg>
+          </button>
         </div>
-        <div class="form-row">
-          <div class="form-group">
-            <label for="currentBus">Assigned Bus</label>
-            <select id="currentBus">
-              <option value="">Unassigned</option>
-            </select>
-          </div>
-          <div class="form-group" id="statusGroup" style="display:none;">
-            <label for="employmentStatus">Employment Status</label>
-            <select id="employmentStatus">
-              <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
-              <option value="on_leave">On Leave</option>
-            </select>
-          </div>
+        <nav class="sidebar-nav">
+          <div class="sidebar-section-label">Main</div>
+          <a
+            href="dashboard.html"
+            class="sidebar-link"
+            data-page="dashboard.html"
+          >
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <rect x="3" y="3" width="7" height="7" />
+              <rect x="14" y="3" width="7" height="7" />
+              <rect x="3" y="14" width="7" height="7" />
+              <rect x="14" y="14" width="7" height="7" />
+            </svg>
+            <span class="sidebar-link-text">Dashboard</span>
+          </a>
+          <a
+            href="live-tracking.html"
+            class="sidebar-link"
+            data-page="live-tracking.html"
+          >
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <circle cx="12" cy="12" r="10" />
+              <circle cx="12" cy="12" r="3" />
+            </svg>
+            <span class="sidebar-link-text">Live Tracking</span>
+          </a>
+          <div class="sidebar-section-label">Management</div>
+          <a href="buses.html" class="sidebar-link" data-page="buses.html">
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <rect x="3" y="5" width="18" height="12" rx="2" />
+              <path d="M7 17v2M17 17v2" />
+            </svg>
+            <span class="sidebar-link-text">Buses</span>
+          </a>
+          <a
+            href="drivers.html"
+            class="sidebar-link active"
+            data-page="drivers.html"
+          >
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+              <circle cx="12" cy="7" r="4" />
+            </svg>
+            <span class="sidebar-link-text">Drivers</span>
+          </a>
+          <a href="routes.html" class="sidebar-link" data-page="routes.html">
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6" />
+              <line x1="8" y1="2" x2="8" y2="18" />
+              <line x1="16" y1="6" x2="16" y2="22" />
+            </svg>
+            <span class="sidebar-link-text">Routes</span>
+          </a>
+          <a
+            href="schedule-builder.html"
+            class="sidebar-link"
+            data-page="schedule-builder.html"
+          >
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+              <line x1="16" y1="2" x2="16" y2="6" />
+              <line x1="8" y1="2" x2="8" y2="6" />
+              <line x1="3" y1="10" x2="21" y2="10" />
+            </svg>
+            <span class="sidebar-link-text">Schedule Builder</span>
+          </a>
+          <div class="sidebar-section-label">Operations</div>
+          <a
+            href="student-requests.html"
+            class="sidebar-link"
+            data-page="student-requests.html"
+          >
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path
+                d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"
+              />
+              <polyline points="14 2 14 8 20 8" />
+            </svg>
+            <span class="sidebar-link-text">Requests</span>
+          </a>
+          <a
+            href="complaints.html"
+            class="sidebar-link"
+            data-page="complaints.html"
+          >
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path
+                d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"
+              />
+              <line x1="12" y1="9" x2="12" y2="13" />
+              <line x1="12" y1="17" x2="12.01" y2="17" />
+            </svg>
+            <span class="sidebar-link-text">Complaints</span>
+          </a>
+          <a href="reports.html" class="sidebar-link" data-page="reports.html">
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <line x1="18" y1="20" x2="18" y2="10" />
+              <line x1="12" y1="20" x2="12" y2="4" />
+              <line x1="6" y1="20" x2="6" y2="14" />
+            </svg>
+            <span class="sidebar-link-text">Reports</span>
+          </a>
+        </nav>
+        <div class="sidebar-footer">
+          <a href="#" class="sidebar-link" id="logoutBtn">
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+              <polyline points="16 17 21 12 16 7" />
+              <line x1="21" y1="12" x2="9" y2="12" />
+            </svg>
+            <span class="sidebar-link-text">Logout</span>
+          </a>
         </div>
+      </aside>
 
-        <div class="modal-actions">
-          <button type="button" class="btn-secondary" id="cancelBtn">Cancel</button>
-          <button type="submit" class="btn-primary">Save Driver</button>
-        </div>
-      </form>
+      <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+      <!-- Content -->
+      <div class="content-area">
+        <main class="main">
+          <div class="page-header">
+            <div>
+              <h1>Drivers</h1>
+              <p class="subtitle">Manage your drivers</p>
+            </div>
+            <button class="btn btn-primary" id="addDriverBtn">
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+              Add Driver
+            </button>
+          </div>
+
+          <!-- Filter Tabs -->
+          <div class="filter-tabs">
+            <button class="tab-btn active" data-filter="all">All</button>
+            <button class="tab-btn" data-filter="active">Active</button>
+            <button class="tab-btn" data-filter="on_leave">On Leave</button>
+            <button class="tab-btn" data-filter="inactive">Inactive</button>
+          </div>
+
+          <!-- Drivers Table -->
+          <div class="card">
+            <div class="table-wrapper">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th>Driver</th>
+                    <th>Contact</th>
+                    <th>License</th>
+                    <th>License Expiry</th>
+                    <th>Assigned Bus</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="driversTableBody">
+                  <tr>
+                    <td colspan="7" class="loading">Loading drivers...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </main>
+      </div>
     </div>
-  </div>
 
-  <script src="assets/js/auth.js"></script>
-  <script src="assets/js/drivers.js"></script>
-  <script>requireAuth();</script>
-</body>
+    <!-- Add/Edit Driver Modal -->
+    <div class="modal" id="driverModal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2 id="driverModalTitle">Add Driver</h2>
+          <button class="modal-close" id="closeDriverModal">&times;</button>
+        </div>
+        <div class="modal-body">
+          <form id="driverForm">
+            <input type="hidden" id="driverId" />
+
+            <div class="form-section-title">Personal Information</div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="fullName">Full Name *</label>
+                <input
+                  type="text"
+                  id="fullName"
+                  class="form-input"
+                  placeholder="e.g. Ravi Kumar"
+                  required
+                />
+              </div>
+              <div class="form-group">
+                <label for="email">Email</label>
+                <input
+                  type="email"
+                  id="email"
+                  class="form-input"
+                  placeholder="e.g. ravi@email.com"
+                />
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="phone">Phone *</label>
+                <input
+                  type="text"
+                  id="phone"
+                  class="form-input"
+                  placeholder="e.g. 9100000001"
+                  required
+                />
+              </div>
+              <div class="form-group">
+                <label for="password">Password *</label>
+                <input
+                  type="password"
+                  id="password"
+                  class="form-input"
+                  placeholder="Min 6 characters"
+                />
+                <span class="form-hint" id="passwordHint"
+                  >Required for new drivers</span
+                >
+              </div>
+            </div>
+
+            <div class="form-section-title">License Details</div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="licenseNumber">License Number *</label>
+                <input
+                  type="text"
+                  id="licenseNumber"
+                  class="form-input"
+                  placeholder="e.g. DL-1234567890"
+                  required
+                />
+              </div>
+              <div class="form-group">
+                <label for="licenseExpiry">License Expiry *</label>
+                <input
+                  type="date"
+                  id="licenseExpiry"
+                  class="form-input"
+                  required
+                />
+              </div>
+            </div>
+
+            <div class="form-section-title">Assignment</div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="assignedBus">Assigned Bus</label>
+                <select id="assignedBus" class="form-select">
+                  <option value="">No bus assigned</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="employmentStatus">Status</label>
+                <select id="employmentStatus" class="form-select">
+                  <option value="active">Active</option>
+                  <option value="on_leave">On Leave</option>
+                  <option value="inactive">Inactive</option>
+                </select>
+              </div>
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" id="cancelDriverBtn">Cancel</button>
+          <button class="btn btn-primary" id="saveDriverBtn">
+            Save Driver
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Delete Confirm Modal -->
+    <div class="modal" id="deleteModal">
+      <div class="modal-content modal-sm">
+        <div class="modal-header">
+          <h2>Delete Driver</h2>
+          <button class="modal-close" id="closeDeleteModal">&times;</button>
+        </div>
+        <div class="modal-body">
+          <p>
+            Are you sure you want to delete
+            <strong id="deleteDriverName"></strong>? Their account will be
+            deactivated.
+          </p>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" id="cancelDeleteBtn">Cancel</button>
+          <button class="btn btn-danger" id="confirmDeleteBtn">Delete</button>
+        </div>
+      </div>
+    </div>
+
+    <script src="assets/js/api.js"></script>
+    <script src="assets/js/auth.js"></script>
+    <script src="assets/js/sidebar.js"></script>
+    <script src="assets/js/drivers.js"></script>
+  </body>
 </html>

@@ -1,0 +1,180 @@
+/* ══════════════════════════════════════════════════════════════════════════════
+   SCHEDULE BUILDER PAGE
+   ══════════════════════════════════════════════════════════════════════════════ */
+
+/* ── Assignment Cards Grid ────────────────────────────────────────────────── */
+.assignments-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 16px;
+  margin-top: 8px;
+}
+
+.assignment-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+  transition: border-color 0.15s;
+}
+
+.assignment-card:hover {
+  border-color: var(--surface-light);
+}
+
+.assignment-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.assignment-route {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.assignment-shift {
+  padding: 3px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.shift-morning {
+  background: rgba(245, 158, 11, 0.15);
+  color: #f59e0b;
+}
+
+.shift-afternoon {
+  background: rgba(14, 165, 233, 0.15);
+  color: #0ea5e9;
+}
+
+.shift-both {
+  background: rgba(16, 185, 129, 0.15);
+  color: #10b981;
+}
+
+.assignment-details {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.assignment-detail {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+}
+
+.assignment-detail-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.assignment-detail-icon.bus {
+  background: var(--primary-glow);
+}
+.assignment-detail-icon.driver {
+  background: var(--success-light);
+}
+.assignment-detail-icon.date {
+  background: var(--warning-light);
+}
+
+.assignment-detail-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.assignment-detail-value {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.assignment-card-footer {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* ── Filter Bar ───────────────────────────────────────────────────────────── */
+.schedule-filters {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+
+.date-filter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.date-filter label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.date-filter input {
+  padding: 8px 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 13px;
+  font-family: inherit;
+}
+
+.date-filter input:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+/* ── Empty State ──────────────────────────────────────────────────────────── */
+.schedule-empty {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--text-muted);
+}
+
+.schedule-empty-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+}
+
+.schedule-empty h3 {
+  font-size: 18px;
+  color: var(--text);
+  margin-bottom: 8px;
+}
+
+/* ── Responsive ───────────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .assignments-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .schedule-filters {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}

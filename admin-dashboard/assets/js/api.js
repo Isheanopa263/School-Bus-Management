@@ -1,80 +1,70 @@
-const API_URL = "http://localhost:3000";
+const API_BASE = "http://localhost:3000/api";
 
-// assets/js/api.js
-
-function getToken() {
-  return localStorage.getItem("token");
-}
-
+/**
+ * Core fetch wrapper for admin dashboard
+ * Attaches JWT token, handles errors
+ */
 async function apiFetch(endpoint, options = {}) {
-  const token = getToken();
-  const headers = {
-    "Content-Type": "application/json",
-    ...options.headers,
-  };
+  const token = localStorage.getItem("admin_token");
 
-  if (token) {
-    headers["Authorization"] = `Bearer ${token}`;
-  }
-
-  const res = await fetch(`http://localhost:3000${endpoint}`, {
-    ...options,
-    headers,
-  });
-
-  if (res.status === 401) {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
-    window.location.href = "./index.html";
-    throw new Error("Session expired");
-  }
-
-  const data = await res.json();
-
-  if (!res.ok) {
-    throw new Error(data.message || data.error || "Request failed");
-  }
-
-  return data;
-}
-
-function setToken(token) {
-  localStorage.setItem("admin_token", token);
-}
-
-function clearToken() {
-  localStorage.removeItem("admin_token");
-}
-
-async function apiFetch(endpoint, options = {}) {
-  const token = getToken();
   const headers = {
     "Content-Type": "application/json",
     ...(token && { Authorization: `Bearer ${token}` }),
     ...options.headers,
   };
 
-  const res = await fetch(`${API_URL}${endpoint}`, { ...options, headers });
+  try {
+    const response = await fetch(`${API_BASE}${endpoint}`, {
+      ...options,
+      headers,
+    });
 
-  if (res.status === 401) {
-    clearToken();
-    // Use relative path, not absolute
-    if (!window.location.pathname.endsWith("index.html")) {
-      window.location.href = "/index.html";
+    // 1. Handle 401 Unauthorized
+    if (response.status === 401) {
+      const isLoginPage =
+        window.location.pathname.endsWith("index.html") ||
+        window.location.pathname.endsWith("/admin-dashboard/");
+      if (!isLoginPage) {
+        localStorage.removeItem("admin_token");
+        localStorage.removeItem("admin_user");
+        window.location.href = "index.html";
+        return null;
+      }
+      throw { status: 401, message: "Invalid credentials" };
     }
-    throw new Error("Incorrect Credidentials");
-  }
 
-  if (!res.ok) {
-    const error = await res.text();
-    throw new Error(error || "Request failed");
-  }
+    // 2. Handle 204 No Content (Common for DELETE/PUT)
+    if (response.status === 204) {
+      return null;
+    }
 
-  return res.json();
-}
+    // 3. Get response text
+    const text = await response.text();
+    if (!text) return null;
 
-function requireAuth() {
-  if (!getToken() && !window.location.pathname.includes("index.html")) {
-    window.location.href = "/index.html";
+    // 4. Try to parse JSON
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch (e) {
+      // If it's not JSON, return as plain text or handle as error
+      if (!response.ok) throw { status: response.status, message: text };
+      return text;
+    }
+
+    // 5. Handle other non-OK responses
+    if (!response.ok) {
+      throw {
+        status: response.status,
+        message: data?.error || data?.message || "Request failed",
+      };
+    }
+
+    return data;
+  } catch (err) {
+    if (err instanceof TypeError) {
+      throw { status: 0, message: "No internet connection" };
+    }
+    throw err;
   }
 }

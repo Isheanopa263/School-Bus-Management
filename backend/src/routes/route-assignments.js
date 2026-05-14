@@ -76,4 +76,23 @@ router.get(
   },
 );
 
+/**
+ * DELETE /api/route-assignments/:id - Admin only
+ */
+router.delete("/:id", requireAuth, requireRole(["admin"]), async (req, res) => {
+  try {
+    const { rowCount } = await db.query(
+      "DELETE FROM route_assignments WHERE id = $1",
+      [req.params.id],
+    );
+    if (rowCount === 0) {
+      return res.status(404).json({ error: "Assignment not found" });
+    }
+    res.json({ message: "Assignment deleted" });
+  } catch (err) {
+    console.error("Delete assignment error:", err);
+    res.status(500).json({ error: "Failed to delete assignment" });
+  }
+});
+
 module.exports = router;

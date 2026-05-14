@@ -5,61 +5,79 @@ const { requireAuth, requireRole } = require("../middleware/auth");
 const router = express.Router();
 
 /**
- * POST /api/stops - Admin only
- * location format: 'POINT(77.5946 12.9716)' - lng lat
+ * POST /api/stops
  */
 router.post("/", requireAuth, requireRole(["admin"]), async (req, res) => {
-  const { route_id, name, location, sequence_number, scheduled_arrival_time } =
-    req.body;
+  const {
+    route_id,
+    name,
+    latitude,
+    longitude,
+    sequence_number,
+    scheduled_arrival_time,
+  } = req.body;
 
-  if (!route_id || !name || !location || !sequence_number) {
+  if (
+    !route_id ||
+    !name ||
+    latitude === undefined ||
+    longitude === undefined ||
+    !sequence_number
+  ) {
     return res
       .status(400)
-      .json({ error: "route_id, name, location, sequence_number required" });
+      .json({
+        error: "route_id, name, latitude, longitude, sequence_number required",
+      });
   }
 
   try {
     const { rows } = await db.query(
       `INSERT INTO stops (route_id, name, location, sequence_number, scheduled_arrival_time)
-       VALUES ($1, $2, ST_GeomFromText($3, 4326), $4, $5)
-       RETURNING id, route_id, name, ST_AsText(location) as location, sequence_number, scheduled_arrival_time`,
-      [route_id, name, location, sequence_number, scheduled_arrival_time],
+       VALUES ($1, $2, ST_SetSRID(ST_MakePoint($3, $4), 4326), $5, $6)
+       RETURNING id, route_id, name,
+                 ST_Y(location::geometry) as latitude,
+                 ST_X(location::geometry) as longitude,
+                 sequence_number, scheduled_arrival_time`,
+      [
+        route_id,
+        name,
+        parseFloat(longitude),
+        parseFloat(latitude),
+        sequence_number,
+        scheduled_arrival_time || null,
+      ],
     );
     res.status(201).json({ stop: rows[0] });
   } catch (err) {
-    if (err.code === "23505") {
+    if (err.code === "23505")
       return res
         .status(409)
         .json({ error: "Sequence number already exists for this route" });
-    }
     console.error("Create stop error:", err);
     res.status(500).json({ error: "Failed to create stop" });
   }
 });
 
 /**
- * GET /api/stops?route_id=xxx - All authenticated
+ * GET /api/stops?route_id=xxx
  */
 router.get("/", requireAuth, async (req, res) => {
   const { route_id } = req.query;
+  if (!route_id)
+    return res.status(400).json({ error: "route_id query param required" });
 
   try {
-    let query = `
-      SELECT s.id, s.route_id, s.name, ST_AsText(s.location) as location,
-             s.sequence_number, s.scheduled_arrival_time, r.name as route_name
-      FROM stops s
-      JOIN routes r ON s.route_id = r.rid
-    `;
-    const params = [];
-
-    if (route_id) {
-      query += " WHERE s.route_id = $1";
-      params.push(route_id);
-    }
-
-    query += " ORDER BY s.route_id, s.sequence_number";
-
-    const { rows } = await db.query(query, params);
+    const { rows } = await db.query(
+      `SELECT id, route_id, name,
+              ST_Y(location::geometry) as latitude,
+              ST_X(location::geometry) as longitude,
+              sequence_number, scheduled_arrival_time
+       FROM stops
+       WHERE route_id = $1
+       ORDER BY sequence_number`,
+      [route_id],
+    );
     res.json({ stops: rows });
   } catch (err) {
     console.error("Get stops error:", err);
@@ -68,20 +86,29 @@ router.get("/", requireAuth, async (req, res) => {
 });
 
 /**
- * DELETE /api/stops/:id - Admin only
+ * DELETE /api/stops/:id
  */
 router.delete("/:id", requireAuth, requireRole(["admin"]), async (req, res) => {
+  const client = await db.pool.connect();
   try {
-    const { rowCount } = await db.query("DELETE FROM stops WHERE id = $1", [
+    await client.query("BEGIN");
+    await client.query(
+      "UPDATE students SET assigned_stop_id=NULL WHERE assigned_stop_id=$1",
+      [req.params.id],
+    );
+    const { rowCount } = await client.query("DELETE FROM stops WHERE id=$1", [
       req.params.id,
     ]);
-    if (rowCount === 0) {
+    await client.query("COMMIT");
+    if (rowCount === 0)
       return res.status(404).json({ error: "Stop not found" });
-    }
     res.json({ message: "Stop deleted" });
   } catch (err) {
+    await client.query("ROLLBACK");
     console.error("Delete stop error:", err);
     res.status(500).json({ error: "Failed to delete stop" });
+  } finally {
+    client.release();
   }
 });
 

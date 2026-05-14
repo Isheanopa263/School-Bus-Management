@@ -3,151 +3,370 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Complaints - Bus Tracking Admin</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
-      rel="stylesheet"
-    />
-    <link rel="stylesheet" href="assets/css/buses.css" />
+    <title>Complaints - BusTrack Admin</title>
+    <link rel="stylesheet" href="assets/css/base.css" />
+    <link rel="stylesheet" href="assets/css/complaints.css" />
   </head>
   <body>
-    <nav class="nav">
-      <div class="nav-container">
-        <div class="nav-brand">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-            <path
-              d="M4 16V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v10"
-              stroke="currentColor"
-              stroke-width="2"
-            />
-            <path
-              d="M4 16h16v2a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-2z"
-              fill="currentColor"
-            />
-          </svg>
-          <span>Bus Tracking</span>
-        </div>
-        <div class="nav-links">
-          <a href="./dashboard.html" class="nav-link">Dashboard</a>
-          <a href="./live-tracking.html" class="nav-link">Live Tracking</a>
-          <a href="./buses.html" class="nav-link">Buses</a>
-          <a href="./routes.html" class="nav-link">Routes</a>
-          <a href="./drivers.html" class="nav-link">Drivers</a>
-          <a href="./student-requests.html" class="nav-link">Requests</a>
-          <a href="./complaints.html" class="nav-link active">Complaints</a>
-          <a href="./reports.html" class="nav-link">Reports</a>
-        </div>
-        <button id="logoutBtn" class="btn-logout">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-            <path
-              d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"
-              stroke="currentColor"
-              stroke-width="2"
-            />
-            <path
-              d="M16 17l5-5-5-5M21 12H9"
-              stroke="currentColor"
-              stroke-width="2"
-            />
-          </svg>
-          <span>Logout</span>
-        </button>
-      </div>
+    <nav class="top-nav">
+      <button class="menu-toggle" id="menuToggle">
+        <svg
+          width="22"
+          height="22"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+        >
+          <line x1="3" y1="6" x2="21" y2="6" />
+          <line x1="3" y1="12" x2="21" y2="12" />
+          <line x1="3" y1="18" x2="21" y2="18" />
+        </svg>
+      </button>
+      <div class="top-nav-brand"><span>BusTrack Admin</span></div>
     </nav>
 
-    <main class="main">
-      <div class="header">
-        <div>
-          <h1>Complaints</h1>
-          <p class="subtitle">Review and resolve issues</p>
+    <div class="app-layout">
+      <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+          <div class="sidebar-brand">
+            <div class="sidebar-brand-icon">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+                <path
+                  d="M4 16V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v10"
+                  stroke="#6366f1"
+                  stroke-width="2"
+                />
+                <path
+                  d="M4 16h16v2a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-2z"
+                  fill="#6366f1"
+                />
+                <circle cx="7.5" cy="16.5" r="1.5" fill="white" />
+                <circle cx="16.5" cy="16.5" r="1.5" fill="white" />
+              </svg>
+            </div>
+            <span class="sidebar-title">BusTrack</span>
+          </div>
+          <button class="sidebar-collapse-btn" id="sidebarCollapse">
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <polyline points="15 18 9 12 15 6" />
+            </svg>
+          </button>
         </div>
-        <div class="filter-tabs">
-          <button class="tab-btn active" data-status="open">Open</button>
-          <button class="tab-btn" data-status="in_progress">In Progress</button>
-          <button class="tab-btn" data-status="resolved">Resolved</button>
-          <button class="tab-btn" data-status="">All</button>
+        <nav class="sidebar-nav">
+          <div class="sidebar-section-label">Main</div>
+          <a
+            href="dashboard.html"
+            class="sidebar-link"
+            data-page="dashboard.html"
+            ><svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <rect x="3" y="3" width="7" height="7" />
+              <rect x="14" y="3" width="7" height="7" />
+              <rect x="3" y="14" width="7" height="7" />
+              <rect x="14" y="14" width="7" height="7" /></svg
+            ><span class="sidebar-link-text">Dashboard</span></a
+          >
+          <a
+            href="live-tracking.html"
+            class="sidebar-link"
+            data-page="live-tracking.html"
+            ><svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <circle cx="12" cy="12" r="10" />
+              <circle cx="12" cy="12" r="3" /></svg
+            ><span class="sidebar-link-text">Live Tracking</span></a
+          >
+          <div class="sidebar-section-label">Management</div>
+          <a href="buses.html" class="sidebar-link" data-page="buses.html"
+            ><svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <rect x="3" y="5" width="18" height="12" rx="2" />
+              <path d="M7 17v2M17 17v2" /></svg
+            ><span class="sidebar-link-text">Buses</span></a
+          >
+          <a href="drivers.html" class="sidebar-link" data-page="drivers.html"
+            ><svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+              <circle cx="12" cy="7" r="4" /></svg
+            ><span class="sidebar-link-text">Drivers</span></a
+          >
+          <a href="routes.html" class="sidebar-link" data-page="routes.html"
+            ><svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6" />
+              <line x1="8" y1="2" x2="8" y2="18" />
+              <line x1="16" y1="6" x2="16" y2="22" /></svg
+            ><span class="sidebar-link-text">Routes</span></a
+          >
+          <a
+            href="schedule-builder.html"
+            class="sidebar-link"
+            data-page="schedule-builder.html"
+            ><svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+              <line x1="16" y1="2" x2="16" y2="6" />
+              <line x1="8" y1="2" x2="8" y2="6" />
+              <line x1="3" y1="10" x2="21" y2="10" /></svg
+            ><span class="sidebar-link-text">Schedule Builder</span></a
+          >
+          <div class="sidebar-section-label">Operations</div>
+          <a
+            href="student-requests.html"
+            class="sidebar-link"
+            data-page="student-requests.html"
+            ><svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path
+                d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"
+              />
+              <polyline points="14 2 14 8 20 8" /></svg
+            ><span class="sidebar-link-text">Requests</span></a
+          >
+          <a
+            href="complaints.html"
+            class="sidebar-link active"
+            data-page="complaints.html"
+            ><svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path
+                d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"
+              />
+              <line x1="12" y1="9" x2="12" y2="13" />
+              <line x1="12" y1="17" x2="12.01" y2="17" /></svg
+            ><span class="sidebar-link-text">Complaints</span></a
+          >
+          <a href="reports.html" class="sidebar-link" data-page="reports.html"
+            ><svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <line x1="18" y1="20" x2="18" y2="10" />
+              <line x1="12" y1="20" x2="12" y2="4" />
+              <line x1="6" y1="20" x2="6" y2="14" /></svg
+            ><span class="sidebar-link-text">Reports</span></a
+          >
+        </nav>
+        <div class="sidebar-footer">
+          <a href="#" class="sidebar-link" id="logoutBtn"
+            ><svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+              <polyline points="16 17 21 12 16 7" />
+              <line x1="21" y1="12" x2="9" y2="12" /></svg
+            ><span class="sidebar-link-text">Logout</span></a
+          >
         </div>
-      </div>
+      </aside>
 
-      <div class="card">
-        <div class="table-wrapper">
-          <table class="table">
-            <thead>
-              <tr>
-                <th>Raised By</th>
-                <th>Category</th>
-                <th>Bus/Driver</th>
-                <th>Priority</th>
-                <th>Description</th>
-                <th>Status</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody id="complaintsTableBody">
-              <tr>
-                <td colspan="7" class="loading">Loading complaints...</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </main>
+      <div class="sidebar-overlay" id="sidebarOverlay"></div>
 
-    <!-- Resolve Modal -->
-    <div id="resolveModal" class="modal">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h2>Resolve Complaint</h2>
-          <button class="modal-close" id="closeModal">&times;</button>
-        </div>
-        <form id="resolveForm">
-          <input type="hidden" id="complaintId" />
-
-          <div id="complaintDetails" class="request-info"></div>
-
-          <div class="form-group">
-            <label for="complaintStatus">Status *</label>
-            <select id="complaintStatus" required>
-              <option value="open">Open</option>
-              <option value="in_progress">In Progress</option>
-              <option value="resolved">Resolved</option>
-              <option value="closed">Closed</option>
-            </select>
+      <div class="content-area">
+        <main class="main">
+          <div class="page-header">
+            <div>
+              <h1>Complaints</h1>
+              <p class="subtitle">Manage and resolve complaints</p>
+            </div>
           </div>
 
-          <div class="form-group">
-            <label for="complaintPriority">Priority</label>
-            <select id="complaintPriority">
-              <option value="low">Low</option>
-              <option value="medium">Medium</option>
-              <option value="high">High</option>
-            </select>
+          <!-- Stats -->
+          <div class="complaints-stats">
+            <div class="complaint-stat open">
+              <div class="complaint-stat-value" id="statOpen">-</div>
+              <div class="complaint-stat-label">Open</div>
+            </div>
+            <div class="complaint-stat in-progress">
+              <div class="complaint-stat-value" id="statProgress">-</div>
+              <div class="complaint-stat-label">In Progress</div>
+            </div>
+            <div class="complaint-stat resolved">
+              <div class="complaint-stat-value" id="statResolved">-</div>
+              <div class="complaint-stat-label">Resolved</div>
+            </div>
+            <div class="complaint-stat closed">
+              <div class="complaint-stat-value" id="statClosed">-</div>
+              <div class="complaint-stat-label">Closed</div>
+            </div>
           </div>
 
-          <div class="form-group">
-            <label for="resolutionNotes">Resolution Notes</label>
-            <textarea
-              id="resolutionNotes"
-              rows="4"
-              placeholder="Describe the resolution or action taken..."
-            ></textarea>
-          </div>
-
-          <div class="modal-footer">
-            <button type="button" class="btn-secondary" id="cancelBtn">
-              Cancel
+          <!-- Filter -->
+          <div class="filter-tabs">
+            <button class="tab-btn active" data-filter="all">All</button>
+            <button class="tab-btn" data-filter="open">Open</button>
+            <button class="tab-btn" data-filter="in_progress">
+              In Progress
             </button>
-            <button type="submit" class="btn-primary" id="saveBtn">
-              Update
-            </button>
+            <button class="tab-btn" data-filter="resolved">Resolved</button>
+            <button class="tab-btn" data-filter="closed">Closed</button>
           </div>
-        </form>
+
+          <!-- Table -->
+          <div class="card">
+            <div class="table-wrapper">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th>Raised By</th>
+                    <th>Category</th>
+                    <th>Description</th>
+                    <th>Priority</th>
+                    <th>Date</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="complaintsTableBody">
+                  <tr>
+                    <td colspan="7" class="loading">Loading complaints...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </main>
       </div>
     </div>
 
+    <!-- Resolve Modal -->
+    <div class="modal" id="resolveModal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>Manage Complaint</h2>
+          <button class="modal-close" id="closeResolveModal">&times;</button>
+        </div>
+        <div class="modal-body">
+          <!-- Complaint Detail -->
+          <div class="complaint-detail-box" id="complaintDetail"></div>
+
+          <!-- Description -->
+          <label
+            style="
+              font-size: 13px;
+              font-weight: 600;
+              color: var(--text-muted);
+              margin-bottom: 6px;
+              display: block;
+            "
+            >Description</label
+          >
+          <div
+            class="complaint-description-box"
+            id="complaintDescription"
+          ></div>
+
+          <!-- Update Form -->
+          <div class="form-row">
+            <div class="form-group">
+              <label>Status</label>
+              <select id="resolveStatus" class="form-select">
+                <option value="open">Open</option>
+                <option value="in_progress">In Progress</option>
+                <option value="resolved">Resolved</option>
+                <option value="closed">Closed</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Priority</label>
+              <select id="resolvePriority" class="form-select">
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Resolution Notes</label>
+            <textarea
+              id="resolveNotes"
+              class="form-textarea"
+              rows="3"
+              placeholder="Add notes about the resolution..."
+            ></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" id="cancelResolveBtn">
+            Cancel
+          </button>
+          <button class="btn btn-primary" id="confirmResolveBtn">
+            Update Complaint
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <script src="assets/js/api.js"></script>
     <script src="assets/js/auth.js"></script>
+    <script src="assets/js/sidebar.js"></script>
     <script src="assets/js/complaints.js"></script>
   </body>
 </html>

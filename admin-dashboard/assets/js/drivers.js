@@ -1,239 +1,355 @@
-const API_BASE = "http://localhost:3000";
-let drivers = [];
-let buses = [];
+/**
+ * Drivers Page Controller
+ * CRUD operations for driver management
+ */
+(function () {
+  let allDrivers = [];
+  let allBuses = [];
+  let currentFilter = "all";
+  let editingDriverId = null;
+  let deletingDriverId = null;
 
-document.addEventListener("DOMContentLoaded", () => {
-  loadBuses();
-  loadDrivers();
-});
+  // ── Init ──────────────────────────────────────────────────────────────
+  init();
 
-async function loadBuses() {
-  try {
-    const res = await apiFetch("/api/buses");
-    buses = res.buses || [];
-    const select = document.getElementById("currentBus");
-    buses.forEach((bus) => {
-      const opt = document.createElement("option");
-      opt.value = bus.bid;
-      opt.textContent = bus.registration_number;
-      select.appendChild(opt);
-    });
-  } catch (err) {
-    console.error("Load buses error:", err);
-  }
-}
-
-async function loadDrivers() {
-  try {
-    const res = await apiFetch("/api/drivers");
-    drivers = res.drivers || [];
-    renderTable();
-  } catch (err) {
-    console.error("Load drivers error:", err);
-    document.getElementById("driversTableBody").innerHTML =
-      `<tr><td colspan="7" class="error">Failed to load: ${err.message}</td></tr>`;
-  }
-}
-
-function renderTable() {
-  const tbody = document.getElementById("driversTableBody");
-
-  if (!drivers || drivers.length === 0) {
-    tbody.innerHTML =
-      '<tr><td colspan="7" class="loading">No drivers found. Add one to get started.</td></tr>';
-    return;
+  async function init() {
+    await Promise.all([loadDrivers(), loadBuses()]);
+    setupEventListeners();
   }
 
-  tbody.innerHTML = drivers
-    .map((driver) => {
-      const expiryDate = driver.license_expiry
-        ? new Date(driver.license_expiry)
-        : null;
-      const isExpired = expiryDate && expiryDate < new Date();
+  // ── Load Drivers ──────────────────────────────────────────────────────
+  async function loadDrivers() {
+    const tbody = document.getElementById("driversTableBody");
 
-      return `
-    <tr>
-      <td><strong>${driver.full_name}</strong><br><small>${driver.email || ""}</small></td>
-      <td>${driver.phone}</td>
-      <td>${driver.license_number}</td>
-      <td class="${isExpired ? "text-danger" : ""}">${expiryDate ? expiryDate.toLocaleDateString() : "-"}</td>
-      <td>${driver.bus_number || '<span class="text-muted">Unassigned</span>'}</td>
-      <td>
-        <span class="badge ${driver.employment_status || "active"}">
-          ${(driver.employment_status || "active").replace("_", " ")}
-        </span>
-      </td>
-      <td>
-        <div class="actions">
-          <button class="btn-icon edit-btn" data-id="${driver.id}" title="Edit">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-              <path d="M18.5 2.5l3 3L13 14l-4 1l1-4l8.5-8.5z"></path>
-            </svg>
-          </button>
-          <button class="btn-icon delete delete-btn" data-id="${driver.id}" title="Delete">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <polyline points="3 6 5 6 21 6"></polyline>
-              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-            </svg>
-          </button>
-        </div>
-      </td>
-    </tr>
-  `;
-    })
-    .join("");
-
-  attachEventListeners();
-}
-
-function attachEventListeners() {
-  document.querySelectorAll(".edit-btn").forEach((btn) => {
-    btn.addEventListener("click", (e) =>
-      editDriver(e.currentTarget.dataset.id),
-    );
-  });
-  document.querySelectorAll(".delete-btn").forEach((btn) => {
-    btn.addEventListener("click", (e) =>
-      deleteDriver(e.currentTarget.dataset.id),
-    );
-  });
-}
-
-document
-  .getElementById("addDriverBtn")
-  ?.addEventListener("click", () => openModal());
-document.getElementById("closeModal")?.addEventListener("click", closeModal);
-document.getElementById("cancelBtn")?.addEventListener("click", closeModal);
-
-function openModal(driver = null) {
-  const modal = document.getElementById("driverModal");
-  const form = document.getElementById("driverForm");
-  form.reset();
-
-  const isEdit = !!driver;
-
-  // Show/hide password field - only required on create
-  document.getElementById("passwordGroup").style.display = isEdit
-    ? "none"
-    : "block";
-  document.getElementById("password").required = !isEdit;
-  document.getElementById("statusGroup").style.display = isEdit
-    ? "block"
-    : "none";
-  document.getElementById("accountSectionTitle").textContent = isEdit
-    ? "Account Details"
-    : "Account Details";
-
-  if (isEdit) {
-    document.getElementById("modalTitle").textContent = "Edit Driver";
-    document.getElementById("driverId").value = driver.id;
-    document.getElementById("fullName").value = driver.full_name;
-    document.getElementById("fullName").disabled = true; // Can't edit user name
-    document.getElementById("email").value = driver.email || "";
-    document.getElementById("email").disabled = true; // Can't edit user email
-    document.getElementById("phone").value = driver.phone;
-    document.getElementById("phone").disabled = true; // Can't edit user phone
-    document.getElementById("licenseNumber").value = driver.license_number;
-    document.getElementById("licenseExpiry").value = driver.license_expiry
-      ? driver.license_expiry.split("T")[0]
-      : "";
-    document.getElementById("currentBus").value = driver.current_bus_id || "";
-    document.getElementById("employmentStatus").value =
-      driver.employment_status || "active";
-  } else {
-    document.getElementById("modalTitle").textContent = "Add Driver";
-    document.getElementById("driverId").value = "";
-    document.getElementById("fullName").disabled = false;
-    document.getElementById("email").disabled = false;
-    document.getElementById("phone").disabled = false;
+    try {
+      const data = await apiFetch("/drivers");
+      allDrivers = data.drivers || data || [];
+      renderDrivers();
+    } catch (err) {
+      console.error("Failed to load drivers:", err);
+      tbody.innerHTML = `<tr><td colspan="7" class="loading">Failed to load drivers</td></tr>`;
+    }
   }
 
-  modal.classList.add("active");
-}
+  // ── Load Buses (for assignment dropdown) ───────────────────────────────
+  async function loadBuses() {
+    try {
+      const data = await apiFetch("/buses");
+      allBuses = (data.buses || data || []).filter(
+        (b) => b.status === "active",
+      );
+    } catch (err) {
+      console.error("Failed to load buses:", err);
+      allBuses = [];
+    }
+  }
 
-function closeModal() {
-  document.getElementById("driverModal").classList.remove("active");
-}
+  // ── Render Drivers ────────────────────────────────────────────────────
+  function renderDrivers() {
+    const tbody = document.getElementById("driversTableBody");
 
-function editDriver(id) {
-  const driver = drivers.find((d) => d.id == id);
-  if (driver) openModal(driver);
-}
+    const filtered =
+      currentFilter === "all"
+        ? allDrivers
+        : allDrivers.filter((d) => d.employment_status === currentFilter);
 
-async function deleteDriver(id) {
-  const driver = drivers.find((d) => d.id == id);
-  if (!driver) return;
-
-  if (
-    !confirm(
-      `Delete driver ${driver.full_name}? This will deactivate their account and unassign them from any bus.`,
-    )
-  )
-    return;
-
-  try {
-    const token = localStorage.getItem("token");
-    const res = await fetch(`${API_BASE}/api/drivers/${id}`, {
-      method: "DELETE",
-      headers: { Authorization: `Bearer ${token}` },
-    });
-
-    if (res.status === 204) {
-      loadDrivers();
+    if (filtered.length === 0) {
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="7" class="loading">
+            ${currentFilter === "all" ? "No drivers found. Add your first driver." : `No ${currentFilter.replace("_", " ")} drivers.`}
+          </td>
+        </tr>`;
       return;
     }
 
-    if (!res.ok) {
-      const text = await res.text();
-      const data = text ? JSON.parse(text) : {};
-      throw new Error(data.error || `HTTP ${res.status}`);
-    }
+    tbody.innerHTML = filtered
+      .map((driver) => {
+        const expiryClass = getExpiryClass(driver.license_expiry);
 
-    loadDrivers();
-  } catch (err) {
-    console.error("Delete error:", err);
-    alert("Error: " + err.message);
+        return `
+        <tr>
+          <td>
+            <div class="driver-name-cell">
+              <div class="driver-avatar">${(driver.full_name || "?").charAt(0).toUpperCase()}</div>
+              <div>
+                <div class="driver-name">${driver.full_name || "-"}</div>
+                <div class="driver-email">${driver.email || "-"}</div>
+              </div>
+            </div>
+          </td>
+          <td class="contact-cell">${driver.phone || "-"}</td>
+          <td class="license-cell">${driver.license_number || "-"}</td>
+          <td class="${expiryClass}">${driver.license_expiry ? formatDate(driver.license_expiry) : "-"}</td>
+          <td>
+            ${
+              driver.bus_number
+                ? `<span class="bus-badge">🚌 ${driver.bus_number}</span>`
+                : `<span class="no-bus">Unassigned</span>`
+            }
+          </td>
+          <td>
+            <span class="badge badge-${driver.employment_status || "active"}">
+              ${(driver.employment_status || "active").replace("_", " ")}
+            </span>
+          </td>
+          <td>
+            <div class="actions">
+              <button class="btn-icon" onclick="editDriver('${driver.id}')" title="Edit">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                  <path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                </svg>
+              </button>
+              <button class="btn-icon delete" onclick="deleteDriver('${driver.id}', '${driver.full_name}')" title="Delete">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="3 6 5 6 21 6"/>
+                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                </svg>
+              </button>
+            </div>
+          </td>
+        </tr>`;
+      })
+      .join("");
   }
-}
 
-document.getElementById("driverForm")?.addEventListener("submit", async (e) => {
-  e.preventDefault();
-  const id = document.getElementById("driverId").value;
-  const isEdit = !!id;
-
-  try {
-    if (isEdit) {
-      // PUT - only update driver fields, not user fields
-      const data = {
-        license_number: document.getElementById("licenseNumber").value,
-        license_expiry: document.getElementById("licenseExpiry").value,
-        employment_status: document.getElementById("employmentStatus").value,
-        current_bus_id: document.getElementById("currentBus").value || null,
-      };
-      await apiFetch(`/api/drivers/${id}`, {
-        method: "PUT",
-        body: JSON.stringify(data),
+  // ── Event Listeners ───────────────────────────────────────────────────
+  function setupEventListeners() {
+    // Filter tabs
+    document.querySelectorAll(".tab-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        document
+          .querySelectorAll(".tab-btn")
+          .forEach((b) => b.classList.remove("active"));
+        btn.classList.add("active");
+        currentFilter = btn.dataset.filter;
+        renderDrivers();
       });
+    });
+
+    // Add driver
+    document
+      .getElementById("addDriverBtn")
+      .addEventListener("click", () => openModal());
+
+    // Close modal
+    document
+      .getElementById("closeDriverModal")
+      .addEventListener("click", closeModal);
+    document
+      .getElementById("cancelDriverBtn")
+      .addEventListener("click", closeModal);
+
+    // Save driver
+    document
+      .getElementById("saveDriverBtn")
+      .addEventListener("click", handleSave);
+
+    // Modal backdrop
+    document.getElementById("driverModal").addEventListener("click", (e) => {
+      if (e.target === e.currentTarget) closeModal();
+    });
+
+    // Delete modal
+    document
+      .getElementById("closeDeleteModal")
+      .addEventListener("click", closeDeleteModal);
+    document
+      .getElementById("cancelDeleteBtn")
+      .addEventListener("click", closeDeleteModal);
+    document
+      .getElementById("confirmDeleteBtn")
+      .addEventListener("click", handleDelete);
+
+    document.getElementById("deleteModal").addEventListener("click", (e) => {
+      if (e.target === e.currentTarget) closeDeleteModal();
+    });
+  }
+
+  // ── Open Modal ────────────────────────────────────────────────────────
+  function openModal(driver = null) {
+    editingDriverId = driver ? driver.id : null;
+
+    document.getElementById("driverModalTitle").textContent = driver
+      ? "Edit Driver"
+      : "Add Driver";
+    document.getElementById("driverId").value = driver ? driver.id : "";
+    document.getElementById("fullName").value = driver
+      ? driver.full_name || ""
+      : "";
+    document.getElementById("email").value = driver ? driver.email || "" : "";
+    document.getElementById("phone").value = driver ? driver.phone || "" : "";
+    document.getElementById("password").value = "";
+    document.getElementById("licenseNumber").value = driver
+      ? driver.license_number || ""
+      : "";
+    document.getElementById("licenseExpiry").value = driver
+      ? formatDateInput(driver.license_expiry)
+      : "";
+    document.getElementById("employmentStatus").value = driver
+      ? driver.employment_status || "active"
+      : "active";
+
+    // Password hint
+    const hint = document.getElementById("passwordHint");
+    if (driver) {
+      hint.textContent = "Leave blank to keep current password";
+      document.getElementById("password").removeAttribute("required");
     } else {
-      // POST - create user + driver
-      const data = {
-        full_name: document.getElementById("fullName").value,
-        email: document.getElementById("email").value || null,
-        phone: document.getElementById("phone").value,
-        password: document.getElementById("password").value,
-        license_number: document.getElementById("licenseNumber").value,
-        license_expiry: document.getElementById("licenseExpiry").value,
-        current_bus_id: document.getElementById("currentBus").value || null,
-      };
-      await apiFetch("/api/drivers", {
-        method: "POST",
-        body: JSON.stringify(data),
-      });
+      hint.textContent = "Required for new drivers";
+      document.getElementById("password").setAttribute("required", "true");
     }
-    closeModal();
-    loadDrivers();
-  } catch (err) {
-    alert("Error: " + err.message);
+
+    // Populate bus dropdown
+    const busSelect = document.getElementById("assignedBus");
+    busSelect.innerHTML =
+      `<option value="">No bus assigned</option>` +
+      allBuses
+        .map(
+          (b) =>
+            `<option value="${b.bid}" ${driver && driver.current_bus_id === b.bid ? "selected" : ""}>${b.registration_number}</option>`,
+        )
+        .join("");
+
+    document.getElementById("driverModal").classList.add("show");
   }
-});
+
+  function closeModal() {
+    document.getElementById("driverModal").classList.remove("show");
+    editingDriverId = null;
+  }
+
+  // ── Save Driver ───────────────────────────────────────────────────────
+  async function handleSave() {
+    const fullName = document.getElementById("fullName").value.trim();
+    const email = document.getElementById("email").value.trim();
+    const phone = document.getElementById("phone").value.trim();
+    const password = document.getElementById("password").value;
+    const licenseNumber = document.getElementById("licenseNumber").value.trim();
+    const licenseExpiry = document.getElementById("licenseExpiry").value;
+    const assignedBus = document.getElementById("assignedBus").value;
+    const status = document.getElementById("employmentStatus").value;
+
+    if (!fullName || !phone || !licenseNumber || !licenseExpiry) {
+      alert("Please fill all required fields.");
+      return;
+    }
+
+    if (!editingDriverId && (!password || password.length < 6)) {
+      alert("Password must be at least 6 characters for new drivers.");
+      return;
+    }
+
+    const saveBtn = document.getElementById("saveDriverBtn");
+    saveBtn.disabled = true;
+    saveBtn.textContent = "Saving...";
+
+    try {
+      if (editingDriverId) {
+        // Update driver record
+        const body = {
+          license_number: licenseNumber,
+          license_expiry: licenseExpiry,
+          employment_status: status,
+          current_bus_id: assignedBus || null,
+        };
+
+        await apiFetch(`/drivers/${editingDriverId}`, {
+          method: "PUT",
+          body: JSON.stringify(body),
+        });
+      } else {
+        // Create new driver (creates user + driver)
+        const body = {
+          full_name: fullName,
+          email: email || null,
+          phone,
+          password,
+          license_number: licenseNumber,
+          license_expiry: licenseExpiry,
+          current_bus_id: assignedBus || null,
+        };
+
+        await apiFetch("/drivers", {
+          method: "POST",
+          body: JSON.stringify(body),
+        });
+      }
+
+      closeModal();
+      await loadDrivers();
+    } catch (err) {
+      alert(err.message || "Failed to save driver");
+    } finally {
+      saveBtn.disabled = false;
+      saveBtn.textContent = "Save Driver";
+    }
+  }
+
+  // ── Edit Driver ───────────────────────────────────────────────────────
+  window.editDriver = function (driverId) {
+    const driver = allDrivers.find((d) => d.id === driverId);
+    if (driver) openModal(driver);
+  };
+
+  // ── Delete Driver ─────────────────────────────────────────────────────
+  window.deleteDriver = function (driverId, name) {
+    deletingDriverId = driverId;
+    document.getElementById("deleteDriverName").textContent = name;
+    document.getElementById("deleteModal").classList.add("show");
+  };
+
+  function closeDeleteModal() {
+    document.getElementById("deleteModal").classList.remove("show");
+    deletingDriverId = null;
+  }
+
+  async function handleDelete() {
+    if (!deletingDriverId) return;
+
+    const confirmBtn = document.getElementById("confirmDeleteBtn");
+    confirmBtn.disabled = true;
+    confirmBtn.textContent = "Deleting...";
+
+    try {
+      await apiFetch(`/drivers/${deletingDriverId}`, {
+        method: "DELETE",
+      });
+
+      closeDeleteModal();
+      await loadDrivers();
+    } catch (err) {
+      alert(err.message || "Failed to delete driver");
+    } finally {
+      confirmBtn.disabled = false;
+      confirmBtn.textContent = "Delete";
+    }
+  }
+
+  // ── Helpers ───────────────────────────────────────────────────────────
+  function getExpiryClass(expiryDate) {
+    if (!expiryDate) return "expiry-ok";
+    const expiry = new Date(expiryDate);
+    const now = new Date();
+    const diffDays = Math.floor((expiry - now) / (1000 * 60 * 60 * 24));
+
+    if (diffDays < 0) return "expiry-danger";
+    if (diffDays < 30) return "expiry-warning";
+    return "expiry-ok";
+  }
+
+  function formatDate(dateStr) {
+    if (!dateStr) return "-";
+    return new Date(dateStr).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
+  }
+
+  function formatDateInput(dateStr) {
+    if (!dateStr) return "";
+    return new Date(dateStr).toISOString().split("T")[0];
+  }
+})();
