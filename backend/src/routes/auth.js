@@ -129,4 +129,79 @@ router.get("/users", requireAuth, requireRole(["admin"]), async (req, res) => {
   }
 });
 
+/**
+ * POST /api/auth/register-student
+ * PUBLIC - Student self registration
+ */
+router.post("/register-student", async (req, res) => {
+  const { full_name, email, phone, password, roll, emergency_contact_phone } =
+    req.body;
+
+  if (!full_name || !phone || !password) {
+    return res
+      .status(400)
+      .json({ error: "full_name, phone and password required" });
+  }
+
+  if (password.length < 6) {
+    return res
+      .status(400)
+      .json({ error: "Password must be at least 6 characters" });
+  }
+
+  const client = await db.pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    // 1. Create user account
+    const password_hash = await hashPassword(password);
+    const userResult = await client.query(
+      `INSERT INTO users (role, full_name, email, phone, password_hash)
+       VALUES ('student', $1, $2, $3, $4)
+       RETURNING userid, role, full_name, email, phone`,
+      [full_name, email || null, phone, password_hash],
+    );
+    const user = userResult.rows[0];
+
+    // 2. Create student profile
+    await client.query(
+      `INSERT INTO students (userid, roll, emergency_contact_phone)
+       VALUES ($1, $2, $3)`,
+      [user.userid, roll || null, emergency_contact_phone || null],
+    );
+
+    await client.query("COMMIT");
+
+    // 3. Auto login - return token
+    const token = jwt.sign(
+      { userid: user.userid, role: "student" },
+      process.env.JWT_SECRET,
+      { expiresIn: process.env.JWT_EXPIRES_IN || "7d" },
+    );
+
+    res.status(201).json({
+      token,
+      user: {
+        userid: user.userid,
+        role: user.role,
+        full_name: user.full_name,
+        email: user.email,
+        phone: user.phone,
+      },
+      message: "Account created successfully",
+    });
+  } catch (err) {
+    await client.query("ROLLBACK");
+    if (err.code === "23505") {
+      return res
+        .status(409)
+        .json({ error: "Phone or email already registered" });
+    }
+    console.error("Student register error:", err);
+    res.status(500).json({ error: "Registration failed" });
+  } finally {
+    client.release();
+  }
+});
+
 module.exports = router;

@@ -179,32 +179,30 @@ router.get("/", requireAuth, requireRole(["admin"]), async (req, res) => {
              br.student_id,
              br.requested_stop_id,
              br.requested_route_id,
-             br.home_location,
              br.status,
              br.notes,
-             br.requested_by,
              br.auto_assigned,
              br.created_at,
              br.updated_at,
-             u.full_name as student_name,
-             u.email as student_email,
-             u.phone as student_phone,
+             u.full_name  AS student_name,
+             u.email      AS student_email,
+             u.phone      AS student_phone,
              s.roll,
              s.emergency_contact_phone,
-             st.id as stop_id,
-             st.name as stop_name,
-             r.rid as route_id,
-             r.name as route_name,
+             st.id        AS stop_id,
+             st.name      AS stop_name,
+             r.rid        AS route_id,
+             r.name       AS route_name,
              CASE 
                WHEN br.home_location IS NOT NULL 
                THEN ST_X(br.home_location::geometry) 
                ELSE NULL 
-             END as home_lng,
+             END AS home_lng,
              CASE 
                WHEN br.home_location IS NOT NULL 
                THEN ST_Y(br.home_location::geometry) 
                ELSE NULL 
-             END as home_lat
+             END AS home_lat
       FROM bus_requests br
       JOIN students s ON br.student_id = s.sid
       JOIN users u ON s.userid = u.userid
@@ -224,9 +222,7 @@ router.get("/", requireAuth, requireRole(["admin"]), async (req, res) => {
     res.json({ requests: rows });
   } catch (err) {
     console.error("Get requests error:", err);
-    res
-      .status(500)
-      .json({ error: "Failed to fetch requests", details: err.message });
+    res.status(500).json({ error: "Failed to fetch requests" });
   }
 });
 /**
@@ -248,17 +244,17 @@ router.put(
     try {
       await client.query("BEGIN");
 
-      // 1. Update request
+      // 1. Update request - use correct column names
       const { rows: requestRows } = await client.query(
         `UPDATE bus_requests
-       SET status = 'approved',
-           requested_stop_id = $1,
-           requested_route_id = $2,
-           admin_notes = $3,
-           reviewed_at = NOW(),
-           reviewed_by = $4
-       WHERE id = $5 AND status = 'pending'
-       RETURNING student_id`,
+         SET status             = 'approved',
+             requested_stop_id  = $1,
+             requested_route_id = $2,
+             notes              = COALESCE($3, notes),
+             approved_by        = $4,
+             updated_at         = NOW()
+         WHERE id = $5 AND status = 'pending'
+         RETURNING student_id`,
         [stop_id, route_id, admin_notes, req.user.userid, id],
       );
 
@@ -274,32 +270,13 @@ router.put(
       // 2. Update student record
       await client.query(
         `UPDATE students
-       SET assigned_stop_id = $1, bus_request_status = 'approved'
-       WHERE sid = $2`,
+         SET assigned_stop_id   = $1,
+             bus_request_status = 'approved'
+         WHERE sid = $2`,
         [stop_id, student_id],
       );
 
       await client.query("COMMIT");
-
-      // 3. Send FCM notification
-      const userResult = await db.query(
-        `SELECT u.fcm_token, u.full_name, r.name as route_name
-       FROM students s
-       JOIN users u ON s.userid = u.userid
-       JOIN routes r ON r.rid = $1
-       WHERE s.sid = $2`,
-        [route_id, student_id],
-      );
-
-      if (userResult.rows[0]?.fcm_token) {
-        await sendToToken(
-          userResult.rows[0].fcm_token,
-          "Bus Request Approved",
-          `Your bus to ${userResult.rows[0].route_name} has been approved`,
-          { type: "bus_approved", request_id: id },
-        );
-      }
-
       res.json({ message: "Request approved successfully" });
     } catch (err) {
       await client.query("ROLLBACK");
@@ -325,12 +302,12 @@ router.put(
     try {
       const { rows } = await db.query(
         `UPDATE bus_requests
-       SET status = 'rejected',
-           admin_notes = $1,
-           reviewed_at = NOW(),
-           reviewed_by = $2
-       WHERE id = $3 AND status = 'pending'
-       RETURNING student_id`,
+         SET status     = 'rejected',
+             notes      = COALESCE($1, notes),
+             approved_by = $2,
+             updated_at  = NOW()
+         WHERE id = $3 AND status = 'pending'
+         RETURNING student_id`,
         [admin_notes, req.user.userid, id],
       );
 
@@ -340,21 +317,11 @@ router.put(
           .json({ error: "Request not found or already processed" });
       }
 
-      // Send FCM notification
-      const userResult = await db.query(
-        `SELECT u.fcm_token FROM students s
-       JOIN users u ON s.userid = u.userid WHERE s.sid = $1`,
+      // Update student status
+      await db.query(
+        "UPDATE students SET bus_request_status = 'rejected' WHERE sid = $1",
         [rows[0].student_id],
       );
-
-      if (userResult.rows[0]?.fcm_token) {
-        await sendToToken(
-          userResult.rows[0].fcm_token,
-          "Bus Request Update",
-          admin_notes || "Your bus request was not approved",
-          { type: "bus_rejected", request_id: id },
-        );
-      }
 
       res.json({ message: "Request rejected" });
     } catch (err) {
@@ -367,5 +334,95 @@ router.put(
 /**
  * GET /api/bus-requests - Admin: list all requests
  */
+
+/**
+ * POST /api/bus-requests/request
+ * Student submits a pending bus request (admin approves manually)
+ */
+router.post(
+  "/request",
+  requireAuth,
+  requireRole(["student"]),
+  async (req, res) => {
+    const { home_location, notes } = req.body;
+    const client = await db.pool.connect();
+
+    try {
+      await client.query("BEGIN");
+
+      // Get student record
+      const studentResult = await client.query(
+        "SELECT sid, bus_request_status FROM students WHERE userid = $1",
+        [req.user.userid],
+      );
+
+      if (studentResult.rows.length === 0) {
+        await client.query("ROLLBACK");
+        return res.status(404).json({ error: "Student profile not found" });
+      }
+
+      const student = studentResult.rows[0];
+
+      // Check if already has active request or approved
+      if (student.bus_request_status === "approved") {
+        await client.query("ROLLBACK");
+        return res
+          .status(409)
+          .json({ error: "You already have an approved bus assignment" });
+      }
+
+      if (student.bus_request_status === "pending") {
+        await client.query("ROLLBACK");
+        return res
+          .status(409)
+          .json({ error: "You already have a pending request" });
+      }
+
+      // Before inserting check and delete old rejected/cancelled requests
+      await client.query(
+        `DELETE FROM bus_requests 
+   WHERE student_id = $1 
+   AND status IN ('rejected', 'cancelled')`,
+        [student.sid],
+      );
+      // Create pending request
+      const { rows } = await client.query(
+        `INSERT INTO bus_requests 
+          (student_id, home_location, status, notes, requested_by, auto_assigned)
+         VALUES (
+           $1,
+           ${home_location ? "ST_GeomFromText($2, 4326)" : "NULL"},
+           'pending',
+           $3,
+           $4,
+           false
+         )
+         RETURNING id, status, created_at`,
+        home_location
+          ? [student.sid, home_location, notes || null, req.user.userid]
+          : [student.sid, notes || null, req.user.userid],
+      );
+
+      // Update student status to pending
+      await client.query(
+        "UPDATE students SET bus_request_status = 'pending' WHERE sid = $1",
+        [student.sid],
+      );
+
+      await client.query("COMMIT");
+
+      res.status(201).json({
+        request: rows[0],
+        message: "Bus request submitted. Admin will review shortly.",
+      });
+    } catch (err) {
+      await client.query("ROLLBACK");
+      console.error("Bus request error:", err);
+      res.status(500).json({ error: "Failed to submit request" });
+    } finally {
+      client.release();
+    }
+  },
+);
 
 module.exports = router;

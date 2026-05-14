@@ -1,0 +1,10 @@
+{
+  "name": "BusTrack Student",
+  "short_name": "BusTrack",
+  "description": "Student portal for school bus management",
+  "start_url": "/student-app/index.html",
+  "display": "standalone",
+  "background_color": "#0a1628",
+  "theme_color": "#10b981",
+  "orientation": "portrait"
+}

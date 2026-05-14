@@ -1,0 +1,156 @@
+/**
+ * App Core - Top Nav Layout
+ */
+const App = (() => {
+  let currentTab = "home";
+  let studentProfile = null;
+
+  function init() {
+    const token = localStorage.getItem("student_token");
+    if (token && !isTokenExpired(token)) {
+      showScreen("main");
+    } else {
+      localStorage.removeItem("student_token");
+      localStorage.removeItem("student_info");
+      showScreen("welcome");
+    }
+  }
+
+  function showScreen(name) {
+    const app = document.getElementById("app");
+    const template = document.getElementById(`tpl-${name}`);
+    if (!template) return;
+
+    localStorage.setItem("current_screen", name);
+    app.innerHTML = "";
+    app.appendChild(template.content.cloneNode(true));
+
+    switch (name) {
+      case "welcome":
+        initWelcome();
+        break;
+      case "login":
+        Auth.initLogin();
+        break;
+      case "register":
+        Auth.initRegister();
+        break;
+      case "main":
+        initMain();
+        break;
+    }
+  }
+
+  function initWelcome() {
+    document
+      .getElementById("goLoginBtn")
+      .addEventListener("click", () => showScreen("login"));
+    document
+      .getElementById("goRegisterBtn")
+      .addEventListener("click", () => showScreen("register"));
+  }
+
+  async function initMain() {
+    // Date
+    const dateEl = document.getElementById("greetingDate");
+    if (dateEl) {
+      dateEl.textContent = new Date().toLocaleDateString("en-US", {
+        weekday: "long",
+        month: "long",
+        day: "numeric",
+      });
+    }
+
+    // Nav tab switching
+    document.querySelectorAll(".nav-link[data-tab]").forEach((link) => {
+      link.addEventListener("click", () => switchTab(link.dataset.tab));
+    });
+
+    // Logout
+    document.getElementById("logoutBtn").addEventListener("click", logout);
+
+    // Load profile
+    try {
+      const data = await StudentAPI.getProfile();
+      studentProfile = data.profile;
+      setHeaderInfo(studentProfile);
+      Home.render(studentProfile);
+      Bus.render(studentProfile);
+    } catch (err) {
+      console.error("Profile load error:", err);
+      const stored = JSON.parse(localStorage.getItem("student_info") || "{}");
+      setHeaderInfo(stored);
+    }
+
+    Tracking.init();
+    Notifications.init();
+    Complaint.init();
+    Profile.render(studentProfile);
+  }
+
+  function setHeaderInfo(profile) {
+    const avatar = document.getElementById("headerAvatar");
+    const name = document.getElementById("greetingName");
+    if (avatar && profile?.full_name) {
+      avatar.textContent = profile.full_name.charAt(0).toUpperCase();
+    }
+    if (name && profile?.full_name) {
+      name.textContent = `Hello, ${profile.full_name.split(" ")[0]} 👋`;
+    }
+  }
+
+  function switchTab(tab) {
+    currentTab = tab;
+
+    // Update nav links
+    document.querySelectorAll(".nav-link[data-tab]").forEach((link) => {
+      link.classList.toggle("active", link.dataset.tab === tab);
+    });
+
+    // Show tab content
+    document.querySelectorAll(".tab-content").forEach((section) => {
+      section.classList.toggle("active", section.id === `tab-${tab}`);
+    });
+
+    // Refresh data
+    switch (tab) {
+      case "home":
+        if (studentProfile) Home.render(studentProfile);
+        break;
+      case "bus":
+        if (studentProfile) Bus.render(studentProfile);
+        break;
+      case "tracking":
+        Tracking.load();
+        break;
+      case "notifications":
+        Notifications.load();
+        break;
+      case "complaint":
+        Complaint.render();
+        break;
+      case "profile":
+        if (studentProfile) Profile.render(studentProfile);
+        break;
+    }
+  }
+
+  function logout() {
+    localStorage.removeItem("student_token");
+    localStorage.removeItem("student_info");
+    showScreen("welcome");
+  }
+
+  function isTokenExpired(token) {
+    try {
+      const payload = JSON.parse(atob(token.split(".")[1]));
+      return payload.exp * 1000 < Date.now();
+    } catch {
+      return true;
+    }
+  }
+
+  document.addEventListener("DOMContentLoaded", init);
+
+  return { showScreen, switchTab, logout, getProfile: () => studentProfile };
+})();

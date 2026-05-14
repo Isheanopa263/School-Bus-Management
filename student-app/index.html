@@ -1,0 +1,660 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    />
+    <meta name="theme-color" content="#10b981" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <title>BusTrack Student</title>
+    <link rel="manifest" href="manifest.json" />
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    />
+    <link rel="stylesheet" href="assets/css/app.css" />
+
+    <!-- ══════ WELCOME ══════ -->
+    <template id="tpl-welcome">
+      <div class="screen">
+        <div class="auth-wrapper">
+          <div class="auth-bg">
+            <div class="gradient-orb orb-1"></div>
+            <div class="gradient-orb orb-2"></div>
+            <div class="grid-pattern"></div>
+          </div>
+          <div class="auth-card">
+            <div class="auth-card-header">
+              <div class="auth-logo">
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none">
+                  <path
+                    d="M4 16V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v10"
+                    stroke="#10b981"
+                    stroke-width="2"
+                  />
+                  <path
+                    d="M4 16h16v2a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-2z"
+                    fill="#10b981"
+                  />
+                  <circle cx="7.5" cy="16.5" r="1.5" fill="white" />
+                  <circle cx="16.5" cy="16.5" r="1.5" fill="white" />
+                </svg>
+              </div>
+              <h1>BusTrack Student</h1>
+              <p>Your school bus companion</p>
+            </div>
+            <div class="auth-form">
+              <button class="btn-login" id="goLoginBtn">Sign In</button>
+              <button class="btn btn-outline" id="goRegisterBtn">
+                Create Account
+              </button>
+            </div>
+            <div class="auth-footer">
+              <p>© 2026 BusTrack. All rights reserved.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </template>
+
+    <!-- ══════ LOGIN ══════ -->
+    <template id="tpl-login">
+      <div class="screen">
+        <div class="auth-wrapper">
+          <div class="auth-bg">
+            <div class="gradient-orb orb-1"></div>
+            <div class="gradient-orb orb-2"></div>
+            <div class="grid-pattern"></div>
+          </div>
+          <div class="auth-card">
+            <div class="auth-card-header">
+              <div class="auth-logo">
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none">
+                  <path
+                    d="M4 16V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v10"
+                    stroke="#10b981"
+                    stroke-width="2"
+                  />
+                  <path
+                    d="M4 16h16v2a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-2z"
+                    fill="#10b981"
+                  />
+                  <circle cx="7.5" cy="16.5" r="1.5" fill="white" />
+                  <circle cx="16.5" cy="16.5" r="1.5" fill="white" />
+                </svg>
+              </div>
+              <h1>Sign In</h1>
+              <p>Welcome back to BusTrack</p>
+            </div>
+            <form class="auth-form" id="loginForm">
+              <div class="form-error" id="loginError"></div>
+              <div class="form-group">
+                <label>Email Address</label>
+                <div class="input-wrapper">
+                  <svg
+                    class="input-icon"
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <path
+                      d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"
+                    />
+                    <polyline points="22,6 12,13 2,6" />
+                  </svg>
+                  <input
+                    type="email"
+                    id="loginEmail"
+                    class="form-input"
+                    placeholder="student@email.com"
+                  />
+                </div>
+              </div>
+              <div class="form-group">
+                <label>Password</label>
+                <div class="input-wrapper">
+                  <svg
+                    class="input-icon"
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                  </svg>
+                  <input
+                    type="password"
+                    id="loginPassword"
+                    class="form-input"
+                    placeholder="••••••••"
+                  />
+                </div>
+              </div>
+              <button type="button" class="btn-login" id="loginBtn">
+                <span id="loginBtnText">Sign In</span>
+              </button>
+            </form>
+            <div class="auth-footer">
+              <p>
+                Don't have an account? <a id="loginToRegister">Create one</a>
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </template>
+
+    <!-- ══════ REGISTER ══════ -->
+    <template id="tpl-register">
+      <div class="screen">
+        <div class="auth-wrapper">
+          <div class="auth-bg">
+            <div class="gradient-orb orb-1"></div>
+            <div class="gradient-orb orb-2"></div>
+            <div class="grid-pattern"></div>
+          </div>
+          <div class="auth-card" style="max-width: 460px">
+            <div class="auth-card-header">
+              <div class="auth-logo">
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none">
+                  <path
+                    d="M4 16V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v10"
+                    stroke="#10b981"
+                    stroke-width="2"
+                  />
+                  <path
+                    d="M4 16h16v2a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-2z"
+                    fill="#10b981"
+                  />
+                  <circle cx="7.5" cy="16.5" r="1.5" fill="white" />
+                  <circle cx="16.5" cy="16.5" r="1.5" fill="white" />
+                </svg>
+              </div>
+              <h1>Create Account</h1>
+              <p>Join BusTrack today</p>
+            </div>
+            <form class="auth-form" id="registerForm">
+              <div class="form-error" id="registerError"></div>
+
+              <div class="form-section-title">Personal Details</div>
+
+              <div class="form-group">
+                <label>Full Name *</label>
+                <div class="input-wrapper">
+                  <svg
+                    class="input-icon"
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                    <circle cx="12" cy="7" r="4" />
+                  </svg>
+                  <input
+                    type="text"
+                    id="regName"
+                    class="form-input"
+                    placeholder="Your full name"
+                  />
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label>Phone *</label>
+                <div class="input-wrapper">
+                  <svg
+                    class="input-icon"
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <path
+                      d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-5.69-5.69A19.79 19.79 0 0 1 2.62 4.59 2 2 0 0 1 4.59 2.38h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l.89-.89a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"
+                    />
+                  </svg>
+                  <input
+                    type="tel"
+                    id="regPhone"
+                    class="form-input"
+                    placeholder="09XXXXXXXXX"
+                  />
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label>Email</label>
+                <div class="input-wrapper">
+                  <svg
+                    class="input-icon"
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <path
+                      d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"
+                    />
+                    <polyline points="22,6 12,13 2,6" />
+                  </svg>
+                  <input
+                    type="email"
+                    id="regEmail"
+                    class="form-input"
+                    placeholder="Optional"
+                  />
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label>Password *</label>
+                <div class="input-wrapper">
+                  <svg
+                    class="input-icon"
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                  </svg>
+                  <input
+                    type="password"
+                    id="regPassword"
+                    class="form-input"
+                    placeholder="Min 6 characters"
+                  />
+                </div>
+              </div>
+
+              <div class="form-section-title">Student Details</div>
+
+              <div class="form-group">
+                <label>Roll Number</label>
+                <div class="input-wrapper">
+                  <svg
+                    class="input-icon"
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <path
+                      d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"
+                    />
+                    <polyline points="14 2 14 8 20 8" />
+                  </svg>
+                  <input
+                    type="text"
+                    id="regRoll"
+                    class="form-input"
+                    placeholder="e.g. 22A91A0501"
+                  />
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label>Emergency Contact</label>
+                <div class="input-wrapper">
+                  <svg
+                    class="input-icon"
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <path
+                      d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-5.69-5.69A19.79 19.79 0 0 1 2.62 4.59 2 2 0 0 1 4.59 2.38h3"
+                    />
+                  </svg>
+                  <input
+                    type="tel"
+                    id="regEmergency"
+                    class="form-input"
+                    placeholder="Parent/Guardian phone"
+                  />
+                </div>
+              </div>
+
+              <button type="button" class="btn-login" id="registerBtn">
+                <span id="registerBtnText">Create Account</span>
+              </button>
+            </form>
+            <div class="auth-footer">
+              <p>
+                Already have an account? <a id="registerToLogin">Sign in</a>
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </template>
+
+    <!-- ══════ MAIN APP ══════ -->
+    <template id="tpl-main">
+      <div class="screen">
+        <!-- Top Nav -->
+        <nav class="top-nav">
+          <div class="nav-container">
+            <div class="nav-brand">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                <path
+                  d="M4 16V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v10"
+                  stroke="currentColor"
+                  stroke-width="2"
+                />
+                <path
+                  d="M4 16h16v2a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-2z"
+                  fill="currentColor"
+                />
+              </svg>
+              <span>BusTrack</span>
+            </div>
+            <div class="nav-links">
+              <button class="nav-link active" data-tab="home">Home</button>
+              <button class="nav-link" data-tab="bus">Bus Service</button>
+              <button class="nav-link" data-tab="tracking">Live Track</button>
+              <button class="nav-link" data-tab="notifications">Alerts</button>
+              <button class="nav-link" data-tab="complaint">Report</button>
+              <button class="nav-link" data-tab="profile">Profile</button>
+            </div>
+            <div class="nav-right">
+              <button
+                class="nav-avatar"
+                id="headerAvatar"
+                onclick="App.switchTab('profile')"
+                style="cursor: pointer; border: none"
+              >
+                S
+              </button>
+              <button class="btn-logout" id="logoutBtn">
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                  <path d="M16 17l5-5-5-5M21 12H9" />
+                </svg>
+                <span>Logout</span>
+              </button>
+            </div>
+          </div>
+        </nav>
+
+        <!-- Content -->
+        <div class="main-content">
+          <!-- Home -->
+          <div class="tab-content active" id="tab-home">
+            <div class="home-greeting">
+              <div class="home-greeting-name" id="greetingName">Hello 👋</div>
+              <div class="home-greeting-sub" id="greetingDate"></div>
+            </div>
+            <div id="tripBanner" class="hidden"></div>
+            <div class="status-card" id="homeStatusCard">
+              <div style="text-align: center; padding: 20px">
+                <div class="spinner"></div>
+                <p style="color: var(--text-muted); font-size: 14px">
+                  Loading...
+                </p>
+              </div>
+            </div>
+            <div class="quick-actions">
+              <button class="quick-action-card" onclick="App.switchTab('bus')">
+                <div class="quick-action-icon">🚌</div>
+                <div class="quick-action-label">Bus Service</div>
+              </button>
+              <button
+                class="quick-action-card"
+                onclick="App.switchTab('tracking')"
+              >
+                <div class="quick-action-icon">📍</div>
+                <div class="quick-action-label">Live Track</div>
+              </button>
+              <button
+                class="quick-action-card"
+                onclick="App.switchTab('notifications')"
+              >
+                <div class="quick-action-icon">🔔</div>
+                <div class="quick-action-label">Notifications</div>
+              </button>
+              <button
+                class="quick-action-card"
+                onclick="App.switchTab('complaint')"
+              >
+                <div class="quick-action-icon">⚠️</div>
+                <div class="quick-action-label">Report Issue</div>
+              </button>
+            </div>
+          </div>
+
+          <!-- Bus -->
+          <div class="tab-content" id="tab-bus">
+            <div class="page-header">
+              <div>
+                <h1>Bus Service</h1>
+                <p class="subtitle">Manage your bus assignment</p>
+              </div>
+            </div>
+            <div id="busContent">
+              <div style="text-align: center; padding: 40px">
+                <div class="spinner"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Tracking -->
+          <div class="tab-content" id="tab-tracking">
+            <div class="page-header">
+              <div>
+                <h1>Live Tracking</h1>
+                <p class="subtitle">Track your bus in real-time</p>
+              </div>
+              <button class="btn btn-secondary btn-sm" id="refreshTrackingBtn">
+                Refresh
+              </button>
+            </div>
+            <div id="trackingContent">
+              <div style="text-align: center; padding: 40px">
+                <div class="spinner"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Notifications -->
+          <div class="tab-content" id="tab-notifications">
+            <div class="page-header">
+              <div>
+                <h1>Notifications</h1>
+                <p class="subtitle">Your recent updates</p>
+              </div>
+            </div>
+            <div id="notificationsContent">
+              <div style="text-align: center; padding: 40px">
+                <div class="spinner"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Complaint -->
+          <div class="tab-content" id="tab-complaint">
+            <div class="page-header">
+              <div>
+                <h1>Report Issue</h1>
+                <p class="subtitle">Submit a complaint or feedback</p>
+              </div>
+            </div>
+            <div id="complaintContent"></div>
+          </div>
+
+          <!-- Profile -->
+          <div class="tab-content" id="tab-profile">
+            <div class="page-header">
+              <div>
+                <h1>My Profile</h1>
+                <p class="subtitle">Manage your account</p>
+              </div>
+            </div>
+
+            <!-- Profile Header -->
+            <div class="profile-header-card" id="profileHeader">
+              <div class="profile-avatar-lg" id="profileAvatar">S</div>
+              <div class="profile-name" id="profileName">Loading...</div>
+              <div class="profile-roll" id="profileRoll"></div>
+              <span
+                class="status-pill"
+                id="profileStatus"
+                style="margin-top: 8px; display: inline-block"
+              ></span>
+            </div>
+
+            <!-- Personal Info -->
+            <div class="profile-section-card" id="personalInfoCard">
+              <div class="profile-section-header">
+                <h3>Personal Information</h3>
+                <button class="btn btn-secondary btn-sm" id="editPersonalBtn">
+                  Edit
+                </button>
+              </div>
+              <div id="personalInfoView"></div>
+              <div id="personalInfoEdit" class="hidden"></div>
+            </div>
+
+            <!-- Bus Assignment -->
+            <div class="profile-section-card" id="busAssignmentCard">
+              <div class="profile-section-header">
+                <h3>Bus Assignment</h3>
+              </div>
+              <div id="busAssignmentInfo"></div>
+            </div>
+
+            <!-- Change Password -->
+            <div class="profile-section-card">
+              <div class="profile-section-header">
+                <h3>Change Password</h3>
+              </div>
+              <div id="passwordSection">
+                <div class="form-group">
+                  <label>Current Password</label>
+                  <input
+                    type="password"
+                    id="currentPassword"
+                    class="form-input no-icon"
+                    placeholder="Enter current password"
+                  />
+                </div>
+                <div class="form-group">
+                  <label>New Password</label>
+                  <input
+                    type="password"
+                    id="newPassword"
+                    class="form-input no-icon"
+                    placeholder="Min 6 characters"
+                  />
+                </div>
+                <div class="form-group">
+                  <label>Confirm New Password</label>
+                  <input
+                    type="password"
+                    id="confirmPassword"
+                    class="form-input no-icon"
+                    placeholder="Confirm new password"
+                  />
+                </div>
+                <div id="passwordError" class="form-error"></div>
+                <div
+                  id="passwordSuccess"
+                  class="hidden"
+                  style="
+                    padding: 10px 14px;
+                    background: var(--success-light);
+                    border: 1px solid rgba(16, 185, 129, 0.3);
+                    border-radius: 8px;
+                    font-size: 14px;
+                    color: var(--success);
+                    margin-bottom: 12px;
+                  "
+                ></div>
+                <button class="btn btn-primary" id="changePasswordBtn">
+                  <span id="changePasswordText">Update Password</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Danger Zone -->
+            <div class="profile-section-card danger-zone">
+              <div class="profile-section-header">
+                <h3 style="color: var(--error)">Danger Zone</h3>
+              </div>
+              <p
+                style="
+                  font-size: 14px;
+                  color: var(--text-muted);
+                  margin-bottom: 14px;
+                "
+              >
+                Leaving bus service will remove your assignment. You can
+                re-apply later.
+              </p>
+              <button class="btn btn-danger" id="profileLeaveBusBtn">
+                Leave Bus Service
+              </button>
+            </div>
+
+            <!-- Logout -->
+            <button
+              class="btn btn-outline"
+              id="profileLogoutBtn"
+              style="
+                margin-top: 8px;
+                border-color: var(--error);
+                color: var(--error);
+              "
+            >
+              Sign Out
+            </button>
+          </div>
+        </div>
+      </div>
+    </template>
+
+    <div id="app"></div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="assets/js/api.js"></script>
+    <script src="assets/js/auth.js"></script>
+    <script src="assets/js/home.js"></script>
+    <script src="assets/js/bus.js"></script>
+    <script src="assets/js/tracking.js"></script>
+    <script src="assets/js/notifications.js"></script>
+    <script src="assets/js/complaint.js"></script>
+    <script src="assets/js/profile.js"></script>
+    <script src="assets/js/app.js"></script>
+  </head>
+  <body></body>
+</html>
