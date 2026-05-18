@@ -254,7 +254,7 @@
           employment_status: status,
           current_bus_id: assignedBus || null,
         };
-
+        console.log("Saving driver payload:", body);
         await apiFetch(`/drivers/${editingDriverId}`, {
           method: "PUT",
           body: JSON.stringify(body),

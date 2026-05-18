@@ -100,15 +100,22 @@ router.put("/:id", requireAuth, requireRole(["admin"]), async (req, res) => {
        SET license_number = COALESCE($1, license_number),
            license_expiry = COALESCE($2, license_expiry),
            employment_status = COALESCE($3, employment_status),
-           current_bus_id = COALESCE($4, current_bus_id)
+           current_bus_id = $4
        WHERE id = $5
        RETURNING *`,
-      [license_number, license_expiry, employment_status, current_bus_id, id],
+      [
+        license_number,
+        license_expiry,
+        employment_status,
+        current_bus_id || null,
+        id,
+      ],
     );
 
     if (rows.length === 0) {
       return res.status(404).json({ error: "Driver not found" });
     }
+
     res.json({ driver: rows[0] });
   } catch (err) {
     console.error("Update driver error:", err);
@@ -163,6 +170,10 @@ router.delete("/:id", requireAuth, requireRole(["admin"]), async (req, res) => {
   }
 });
 
+/**
+ * GET /api/drivers/active - Admin only
+ * Get all active drivers with their current bus info
+ */
 router.get("/", requireAuth, async (req, res) => {
   try {
     const result = await db.query(`

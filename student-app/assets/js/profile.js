@@ -7,6 +7,20 @@ const Profile = (() => {
   function render(profile) {
     if (!profile) return;
 
+    // Reset edit state every time profile tab is rendered
+    isEditing = false;
+
+    const editContainer = document.getElementById("personalInfoEdit");
+    const viewContainer = document.getElementById("personalInfoView");
+
+    if (editContainer) {
+      editContainer.classList.add("hidden");
+      editContainer.innerHTML = "";
+    }
+    if (viewContainer) {
+      viewContainer.classList.remove("hidden");
+    }
+
     // Header
     const avatar = document.getElementById("profileAvatar");
     const name = document.getElementById("profileName");
@@ -30,13 +44,8 @@ const Profile = (() => {
       status.className = `status-pill ${s || "none"}`;
     }
 
-    // Personal Info - View
     renderPersonalView(profile);
-
-    // Bus Assignment
     renderBusAssignment(profile);
-
-    // Event Listeners
     setupEvents(profile);
   }
 
@@ -71,6 +80,21 @@ const Profile = (() => {
       </div>`;
   }
 
+  function closeEditMode() {
+    isEditing = false;
+
+    const editBtn = document.getElementById("editPersonalBtn");
+    const editContainer = document.getElementById("personalInfoEdit");
+    const viewContainer = document.getElementById("personalInfoView");
+
+    if (editBtn) editBtn.textContent = "Edit";
+    if (editContainer) {
+      editContainer.classList.add("hidden");
+      editContainer.innerHTML = "";
+    }
+    if (viewContainer) viewContainer.classList.remove("hidden");
+  }
+
   function renderEditForm(profile) {
     const editContainer = document.getElementById("personalInfoEdit");
     const viewContainer = document.getElementById("personalInfoView");
@@ -80,41 +104,34 @@ const Profile = (() => {
     editContainer.classList.remove("hidden");
 
     editContainer.innerHTML = `
-      <div class="profile-edit-form">
-        <div class="form-group">
-          <label>Full Name</label>
-          <input type="text" id="editName" class="form-input no-icon" value="${profile.full_name || ""}" />
-        </div>
-        <div class="form-group">
-          <label>Phone</label>
-          <input type="tel" id="editPhone" class="form-input no-icon" value="${profile.phone || ""}" />
-        </div>
-        <div class="form-group">
-          <label>Roll Number</label>
-          <input type="text" id="editRoll" class="form-input no-icon" value="${profile.roll || ""}" />
-        </div>
-        <div class="form-group">
-          <label>Emergency Contact</label>
-          <input type="tel" id="editEmergency" class="form-input no-icon" value="${profile.emergency_contact_phone || ""}" />
-        </div>
-        <div id="editError" class="form-error"></div>
-        <div class="profile-edit-actions">
-          <button class="btn btn-secondary" id="cancelEditBtn">Cancel</button>
-          <button class="btn btn-primary" id="saveEditBtn">
-            <span id="saveEditText">Save Changes</span>
-          </button>
-        </div>
-      </div>`;
+    <div class="profile-edit-form">
+      <div class="form-group">
+        <label>Full Name</label>
+        <input type="text" id="editName" class="form-input no-icon" value="${profile.full_name || ""}" />
+      </div>
+      <div class="form-group">
+        <label>Phone</label>
+        <input type="tel" id="editPhone" class="form-input no-icon" value="${profile.phone || ""}" />
+      </div>
+      <div class="form-group">
+        <label>Roll Number</label>
+        <input type="text" id="editRoll" class="form-input no-icon" value="${profile.roll || ""}" />
+      </div>
+      <div class="form-group">
+        <label>Emergency Contact</label>
+        <input type="tel" id="editEmergency" class="form-input no-icon" value="${profile.emergency_contact_phone || ""}" />
+      </div>
+      <div id="editError" class="form-error"></div>
+      <div class="profile-edit-actions">
+        <button class="btn btn-secondary" id="cancelEditBtn">Cancel</button>
+        <button class="btn btn-primary" id="saveEditBtn">
+          <span id="saveEditText">Save Changes</span>
+        </button>
+      </div>
+    </div>`;
 
-    document.getElementById("cancelEditBtn").addEventListener("click", () => {
-      editContainer.classList.add("hidden");
-      viewContainer.classList.remove("hidden");
-      document.getElementById("editPersonalBtn").textContent = "Edit";
-    });
-
-    document
-      .getElementById("saveEditBtn")
-      .addEventListener("click", () => handleSaveProfile());
+    document.getElementById("cancelEditBtn").onclick = closeEditMode;
+    document.getElementById("saveEditBtn").onclick = handleSaveProfile;
   }
 
   function renderBusAssignment(profile) {
@@ -151,26 +168,21 @@ const Profile = (() => {
     // Edit personal info
     const editBtn = document.getElementById("editPersonalBtn");
     if (editBtn) {
-      editBtn.addEventListener("click", () => {
+      editBtn.onclick = () => {
         if (!isEditing) {
           isEditing = true;
           editBtn.textContent = "Cancel";
           renderEditForm(profile);
         } else {
-          isEditing = false;
-          editBtn.textContent = "Edit";
-          document.getElementById("personalInfoEdit").classList.add("hidden");
-          document
-            .getElementById("personalInfoView")
-            .classList.remove("hidden");
+          closeEditMode();
         }
-      });
+      };
     }
 
     // Change password
     const pwdBtn = document.getElementById("changePasswordBtn");
     if (pwdBtn) {
-      pwdBtn.addEventListener("click", handleChangePassword);
+      pwdBtn.onclick = handleChangePassword;
     }
 
     // Leave bus
@@ -179,14 +191,18 @@ const Profile = (() => {
       if (profile.bus_request_status !== "approved") {
         leaveBtn.disabled = true;
         leaveBtn.textContent = "No Bus Assigned";
+        leaveBtn.onclick = null;
+      } else {
+        leaveBtn.disabled = false;
+        leaveBtn.textContent = "Leave Bus Service";
+        leaveBtn.onclick = handleLeaveBus;
       }
-      leaveBtn.addEventListener("click", handleLeaveBus);
     }
 
     // Logout
     const logoutBtn = document.getElementById("profileLogoutBtn");
     if (logoutBtn) {
-      logoutBtn.addEventListener("click", () => App.logout());
+      logoutBtn.onclick = () => App.logout();
     }
   }
 
@@ -231,10 +247,7 @@ const Profile = (() => {
         }),
       );
 
-      isEditing = false;
-      document.getElementById("editPersonalBtn").textContent = "Edit";
-      document.getElementById("personalInfoEdit").classList.add("hidden");
-      document.getElementById("personalInfoView").classList.remove("hidden");
+      closeEditMode();
 
       renderPersonalView(profile);
       document.getElementById("profileName").textContent = profile.full_name;

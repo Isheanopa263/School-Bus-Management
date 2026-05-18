@@ -42,9 +42,9 @@ router.post("/", requireAuth, requireRole(["admin"]), async (req, res) => {
 
     // 2. Create student
     const studentResult = await client.query(
-      `INSERT INTO students (userid, roll, assigned_stop_id, emergency_contact_phone)
-       VALUES ($1, $2, $3, $4)
-       RETURNING *`,
+      `INSERT INTO students (userid, roll, assigned_stop_id, emergency_contact_phone, bus_request_status)
+   VALUES ($1, $2, $3, $4, 'inactive')
+   RETURNING *`,
       [user.userid, roll, assigned_stop_id, emergency_contact_phone],
     );
 

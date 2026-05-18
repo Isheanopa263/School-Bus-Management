@@ -165,8 +165,8 @@ router.post("/register-student", async (req, res) => {
 
     // 2. Create student profile
     await client.query(
-      `INSERT INTO students (userid, roll, emergency_contact_phone)
-       VALUES ($1, $2, $3)`,
+      `INSERT INTO students (userid, roll, emergency_contact_phone, bus_request_status)
+       VALUES ($1, $2, $3, 'inactive')`,
       [user.userid, roll || null, emergency_contact_phone || null],
     );
 

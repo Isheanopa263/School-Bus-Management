@@ -86,12 +86,9 @@ const Bus = (() => {
         </button>
       </div>`;
 
-    document
-      .getElementById("changeStopBtn")
-      .addEventListener("click", () => renderRequest(container, true));
-    document
-      .getElementById("leaveBusBtn")
-      .addEventListener("click", handleLeaveBus);
+    document.getElementById("changeStopBtn").onclick = () =>
+      renderRequest(container, true);
+    document.getElementById("leaveBusBtn").onclick = handleLeaveBus;
   }
 
   // ── Pending State ─────────────────────────────────────────────────────
@@ -121,13 +118,14 @@ const Bus = (() => {
         <button class="btn btn-primary" id="reapplyBtn">Apply Again</button>
       </div>`;
 
-    document
-      .getElementById("reapplyBtn")
-      .addEventListener("click", () => renderRequest(container));
+    document.getElementById("reapplyBtn").onclick = () =>
+      renderRequest(container);
   }
 
   // ── Request Form ──────────────────────────────────────────────────────
   function renderRequest(container, isChange = false) {
+    selectedLat = null;
+    selectedLng = null;
     container.innerHTML = `
     <div class="card">
       <h3 class="section-title">${isChange ? "Change My Stop" : "Request Bus Service"}</h3>
@@ -165,13 +163,15 @@ const Bus = (() => {
 
     // Cancel button
     if (isChange) {
-      document
-        .getElementById("cancelChangeBtn")
-        .addEventListener("click", async () => {
-          const data = await StudentAPI.getProfile();
-          render(data.profile);
-        });
+      document.getElementById("cancelChangeBtn").onclick = async () => {
+        const data = await StudentAPI.getProfile();
+        render(data.profile);
+      };
     }
+
+    document.getElementById("submitRequestBtn").onclick = () => {
+      handleSubmitRequest(isChange);
+    };
 
     initRequestMap();
 
@@ -293,11 +293,9 @@ const Bus = (() => {
         <button class="btn btn-primary" id="reapplyAfterLeave" style="margin-top:12px">Apply Again</button>
       </div>`;
 
-      document
-        .getElementById("reapplyAfterLeave")
-        .addEventListener("click", () => {
-          renderRequest(container);
-        });
+      document.getElementById("reapplyAfterLeave").onclick = () => {
+        renderRequest(container);
+      };
     } catch (err) {
       alert(err.message || "Failed to leave bus service");
     }
