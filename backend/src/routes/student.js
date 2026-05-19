@@ -258,6 +258,27 @@ router.post(
         ],
       );
 
+      // Notify admins about new complaint
+      try {
+        const { notifyAdmins } = require("../services/notify");
+        const studentInfo = await db.query(
+          "SELECT u.full_name FROM users u WHERE u.userid = $1",
+          [req.user.userid],
+        );
+        const studentName = studentInfo.rows[0]?.full_name || "Student";
+
+        await notifyAdmins(
+          "⚠️ New Student Complaint",
+          `${studentName} submitted a ${category || "general"} complaint`,
+          { type: "new_complaint", complaint_id: rows[0].id },
+        );
+      } catch (notifyErr) {
+        console.warn(
+          "[NOTIFY] Admin complaint notification failed:",
+          notifyErr.message,
+        );
+      }
+
       res.status(201).json({
         complaint: rows[0],
         message: "Complaint submitted successfully",

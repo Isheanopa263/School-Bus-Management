@@ -1,3 +1,11 @@
+// Register Service Worker
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker
+    .register("/driver-app/service-worker.js")
+    .then((reg) => console.log("[SW] Registered:", reg.scope))
+    .catch((err) => console.error("[SW] Failed:", err.message));
+}
+
 /**
  * App Core
  * - Checks auth state on load
@@ -34,7 +42,10 @@ const App = (() => {
 
     // Initialize screen controller
     if (name === "login") LoginScreen.init();
-    if (name === "route") RouteView.init();
+    if (name === "route") {
+      RouteView.init();
+      DriverPush.init();
+    }
   }
 
   function logout() {

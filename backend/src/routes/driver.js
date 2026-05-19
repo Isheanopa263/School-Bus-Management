@@ -671,6 +671,27 @@ router.post("/sos", requireAuth, requireRole(["driver"]), async (req, res) => {
       `🚨 SOS ALERT: ${event_type} from driver ${userId} at ${new Date().toISOString()}`,
     );
 
+    // Notify all admins about SOS
+    try {
+      const { notifyAdmins } = require("../services/notify");
+      const driverInfo = await db.query(
+        "SELECT u.full_name FROM users u WHERE u.userid = $1",
+        [userId],
+      );
+      const driverName = driverInfo.rows[0]?.full_name || "Driver";
+
+      await notifyAdmins(
+        `🚨 ${event_type.toUpperCase()} Alert`,
+        `${driverName} reported ${event_type.replace("_", " ")} on bus`,
+        { type: event_type, driver_id: driverId, event_id: event.id },
+      );
+    } catch (notifyErr) {
+      console.warn(
+        "[NOTIFY] Admin SOS notification failed:",
+        notifyErr.message,
+      );
+    }
+
     res.status(201).json({
       event,
       message: "SOS alert sent successfully. Admin has been notified.",

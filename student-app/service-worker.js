@@ -61,23 +61,32 @@ self.addEventListener("activate", (e) => {
 // ── Fetch ──────────────────────────────────────────────────────────────────
 self.addEventListener("fetch", (e) => {
   const url = new URL(e.request.url);
-  if (url.pathname.startsWith("/api/")) {
-    e.respondWith(fetch(e.request));
-    return;
-  }
+
+  // Only cache GET requests
+  if (e.request.method !== "GET") return;
+
+  // Never cache API or external calls
+  if (url.hostname === "localhost" || url.pathname.startsWith("/api/")) return;
+
+  // Only cache same-origin files
+  if (url.origin !== self.location.origin) return;
+
   e.respondWith(
     caches.match(e.request).then(
       (cached) =>
         cached ||
         fetch(e.request).then((response) => {
-          const clone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(e.request, clone));
+          if (response.ok) {
+            const clone = response.clone();
+            caches
+              .open(CACHE_NAME)
+              .then((cache) => cache.put(e.request, clone));
+          }
           return response;
         }),
     ),
   );
 });
-
 // ── Background Push Notifications ─────────────────────────────────────────
 // Handles notifications when app is in background or closed
 messaging.onBackgroundMessage((payload) => {

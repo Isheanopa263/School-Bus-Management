@@ -411,6 +411,27 @@ router.post(
 
       await client.query("COMMIT");
 
+      // Notify admins about new request
+      try {
+        const { notifyAdmins } = require("../services/notify");
+        const studentInfo = await db.query(
+          "SELECT u.full_name FROM users u WHERE u.userid = $1",
+          [req.user.userid],
+        );
+        const studentName = studentInfo.rows[0]?.full_name || "Student";
+
+        await notifyAdmins(
+          "📋 New Bus Request",
+          `${studentName} submitted a bus service request`,
+          { type: "new_request", student_id: student.sid },
+        );
+      } catch (notifyErr) {
+        console.warn(
+          "[NOTIFY] Admin request notification failed:",
+          notifyErr.message,
+        );
+      }
+
       res.status(201).json({
         request: rows[0],
         message: "Bus request submitted. Admin will review shortly.",

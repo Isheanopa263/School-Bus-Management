@@ -74,6 +74,28 @@ router.put(
         return res.status(404).json({ error: "Complaint not found" });
       }
 
+      // If complaint was from a driver, notify them
+      const complaint = rows[0];
+      if (
+        complaint.driver_id &&
+        (status === "resolved" || status === "in_progress")
+      ) {
+        try {
+          const { notifyDriver } = require("../services/notify");
+          await notifyDriver(
+            complaint.driver_id,
+            `✅ Issue ${status === "resolved" ? "Resolved" : "Being Reviewed"}`,
+            `Your reported ${complaint.category || "issue"} has been ${status.replace("_", " ")}`,
+            { type: "issue_update", complaint_id: complaint.id },
+          );
+        } catch (notifyErr) {
+          console.warn(
+            "[NOTIFY] Driver notification failed:",
+            notifyErr.message,
+          );
+        }
+      }
+
       res.json({ complaint: rows[0], message: "Complaint updated" });
     } catch (err) {
       console.error("Update complaint error:", err);
