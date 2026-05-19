@@ -80,18 +80,48 @@ router.get(
  * DELETE /api/route-assignments/:id - Admin only
  */
 router.delete("/:id", requireAuth, requireRole(["admin"]), async (req, res) => {
+  const client = await db.pool.connect();
   try {
-    const { rowCount } = await db.query(
+    await client.query("BEGIN");
+
+    // Check if assignment has trips
+    const tripCheck = await client.query(
+      "SELECT COUNT(*) FROM trips WHERE assignment_id = $1",
+      [req.params.id],
+    );
+
+    const tripCount = parseInt(tripCheck.rows[0].count);
+
+    if (tripCount > 0) {
+      // Nullify assignment_id on trips instead of blocking delete
+      await client.query(
+        "UPDATE trips SET assignment_id = NULL WHERE assignment_id = $1",
+        [req.params.id],
+      );
+    }
+
+    // Now safe to delete
+    const { rowCount } = await client.query(
       "DELETE FROM route_assignments WHERE id = $1",
       [req.params.id],
     );
+
     if (rowCount === 0) {
+      await client.query("ROLLBACK");
       return res.status(404).json({ error: "Assignment not found" });
     }
-    res.json({ message: "Assignment deleted" });
+
+    await client.query("COMMIT");
+    res.json({
+      message: "Assignment deleted",
+      trips_unlinked: tripCount,
+    });
   } catch (err) {
+    await client.query("ROLLBACK");
     console.error("Delete assignment error:", err);
     res.status(500).json({ error: "Failed to delete assignment" });
+  } finally {
+    client.release();
   }
 });
 

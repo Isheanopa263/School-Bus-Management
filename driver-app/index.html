@@ -419,6 +419,26 @@
                     End Trip
                   </button>
                 </div>
+                <!-- COMPLETED STATE -->
+<div class="trip-state hidden" id="trip-completed">
+  <div class="trip-active-info">
+    <div class="trip-complete-dot"></div>
+    <div>
+      <div class="trip-active-label" style="color: var(--success)">Trip Completed</div>
+      <div class="trip-active-meta">
+        <span id="completed-trip-type">-</span>
+        &bull;
+        <span id="completed-trip-time">--:--</span>
+      </div>
+    </div>
+  </div>
+  <button class="btn-start-trip" id="start-trip-btn-completed">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+      <polygon points="5 3 19 12 5 21 5 3" fill="currentColor"/>
+    </svg>
+    Start New Trip
+  </button>
+</div>
               </div>
 
               <!-- GPS Status -->

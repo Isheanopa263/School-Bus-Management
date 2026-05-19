@@ -135,4 +135,7 @@ const StudentAPI = {
       }),
     });
   },
+  getLiveTracking() {
+    return apiFetch("/student/tracking/live");
+  },
 };

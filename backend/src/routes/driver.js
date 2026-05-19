@@ -459,6 +459,28 @@ router.post(
       );
 
       // Also try to publish via Redis for real-time (fails silently if no Redis)
+      // ── Geofence Check ────────────────────────────────────────────────
+      try {
+        const { checkGeofence } = require("../services/geofence");
+        const arrivedStop = await checkGeofence(
+          trip_id,
+          busId,
+          latitude,
+          longitude,
+        );
+
+        if (arrivedStop) {
+          console.log(
+            `[DRIVER] Bus arrived at stop: ${arrivedStop.name} ` +
+              `(seq: ${arrivedStop.sequence_number})`,
+          );
+        }
+      } catch (geofenceErr) {
+        // Geofence errors should never break location updates
+        console.warn("[DRIVER] Geofence check failed:", geofenceErr.message);
+      }
+      // ── End Geofence ──────────────────────────────────────────────────
+
       try {
         const {
           cacheLatestLocation,

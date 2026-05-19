@@ -327,4 +327,145 @@ router.put(
   },
 );
 
+/**
+ * GET /api/student/tracking/live
+ * Returns live bus position + ETA to student's assigned stop
+ */
+router.get(
+  "/tracking/live",
+  requireAuth,
+  requireRole(["student"]),
+  async (req, res) => {
+    try {
+      // 1. Get student profile + assigned stop
+      const profileResult = await db.query(
+        `SELECT 
+          s.sid,
+          s.assigned_stop_id,
+          s.bus_request_status,
+          st.name     AS stop_name,
+          ST_Y(st.location::geometry) AS stop_lat,
+          ST_X(st.location::geometry) AS stop_lng,
+          r.rid       AS route_id,
+          b.bid       AS bus_id,
+          b.registration_number AS bus_number
+         FROM students s
+         LEFT JOIN stops st ON s.assigned_stop_id = st.id
+         LEFT JOIN routes r ON st.route_id = r.rid
+         LEFT JOIN route_assignments ra ON r.rid = ra.route_id
+           AND ra.effective_date <= CURRENT_DATE
+           AND (ra.end_date IS NULL OR ra.end_date >= CURRENT_DATE)
+         LEFT JOIN buses b ON ra.bus_id = b.bid
+         WHERE s.userid = $1`,
+        [req.user.userid],
+      );
+
+      if (profileResult.rows.length === 0) {
+        return res.status(404).json({ error: "Student profile not found" });
+      }
+
+      const profile = profileResult.rows[0];
+
+      // Must have approved assignment
+      if (profile.bus_request_status !== "approved" || !profile.bus_id) {
+        return res.status(404).json({
+          error: "No active bus assignment",
+          bus_request_status: profile.bus_request_status,
+        });
+      }
+
+      // 2. Get latest bus location
+      const locationResult = await db.query(
+        `SELECT 
+          ST_Y(location::geometry) AS latitude,
+          ST_X(location::geometry) AS longitude,
+          speed_kmh,
+          heading,
+          recorded_at,
+          trip_id
+         FROM live_locations
+         WHERE bus_id = $1
+         ORDER BY recorded_at DESC
+         LIMIT 1`,
+        [profile.bus_id],
+      );
+
+      if (locationResult.rows.length === 0) {
+        return res.json({
+          bus: null,
+          stop: {
+            stop_id: profile.assigned_stop_id,
+            stop_name: profile.stop_name,
+            latitude: profile.stop_lat,
+            longitude: profile.stop_lng,
+          },
+          eta: null,
+          trip_status: "no_signal",
+          message: "Bus is not currently broadcasting location",
+        });
+      }
+
+      const busLocation = locationResult.rows[0];
+
+      // 3. Get active trip status
+      const tripResult = await db.query(
+        `SELECT id, status, trip_type, start_time
+         FROM trips
+         WHERE id = $1`,
+        [busLocation.trip_id],
+      );
+
+      const trip = tripResult.rows[0] || null;
+
+      // 4. Calculate ETA using OSRM
+      let eta = null;
+      if (profile.stop_lat && profile.stop_lng) {
+        const { getETA } = require("../services/osrm");
+        eta = await getETA(
+          parseFloat(busLocation.latitude),
+          parseFloat(busLocation.longitude),
+          parseFloat(profile.stop_lat),
+          parseFloat(profile.stop_lng),
+          parseFloat(busLocation.speed_kmh || 30),
+        );
+      }
+
+      // 5. Check if stop already visited
+      let stopVisited = false;
+      if (busLocation.trip_id && profile.assigned_stop_id) {
+        const visitResult = await db.query(
+          `SELECT id FROM trip_stop_visits
+           WHERE trip_id = $1 AND stop_id = $2`,
+          [busLocation.trip_id, profile.assigned_stop_id],
+        );
+        stopVisited = visitResult.rows.length > 0;
+      }
+
+      res.json({
+        bus: {
+          bus_id: profile.bus_id,
+          bus_number: profile.bus_number,
+          latitude: parseFloat(busLocation.latitude),
+          longitude: parseFloat(busLocation.longitude),
+          speed_kmh: parseFloat(busLocation.speed_kmh || 0),
+          heading: parseFloat(busLocation.heading || 0),
+          recorded_at: busLocation.recorded_at,
+        },
+        stop: {
+          stop_id: profile.assigned_stop_id,
+          stop_name: profile.stop_name,
+          latitude: profile.stop_lat ? parseFloat(profile.stop_lat) : null,
+          longitude: profile.stop_lng ? parseFloat(profile.stop_lng) : null,
+          already_visited: stopVisited,
+        },
+        eta,
+        trip_status: trip?.status || "unknown",
+        trip_type: trip?.trip_type || null,
+      });
+    } catch (err) {
+      console.error("Student live tracking error:", err);
+      res.status(500).json({ error: "Failed to fetch tracking data" });
+    }
+  },
+);
 module.exports = router;

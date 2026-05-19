@@ -2333,3 +2333,10 @@ body {
     flex-direction: column;
   }
 }
+.trip-complete-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--success);
+  flex-shrink: 0;
+}

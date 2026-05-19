@@ -1,3 +1,14 @@
+// Register Service Worker
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker
+    .register("/student-app/service-worker.js")
+    .then((reg) => {
+      console.log("[SW] Registered:", reg.scope);
+    })
+    .catch((err) => {
+      console.error("[SW] Registration failed:", err.message);
+    });
+}
 /**
  * App Core - Top Nav Layout
  */
@@ -81,6 +92,12 @@ const App = (() => {
       const stored = JSON.parse(localStorage.getItem("student_info") || "{}");
       setHeaderInfo(stored);
     }
+    // Initialize push notifications
+    try {
+      await Push.init();
+    } catch (err) {
+      console.warn("Push init failed:", err.message);
+    }
 
     Tracking.init();
     Notifications.init();
@@ -102,17 +119,19 @@ const App = (() => {
   function switchTab(tab) {
     currentTab = tab;
 
-    // Update nav links
     document.querySelectorAll(".nav-link[data-tab]").forEach((link) => {
       link.classList.toggle("active", link.dataset.tab === tab);
     });
 
-    // Show tab content
     document.querySelectorAll(".tab-content").forEach((section) => {
       section.classList.toggle("active", section.id === `tab-${tab}`);
     });
 
-    // Refresh data
+    // Stop tracking refresh when leaving tracking tab
+    if (tab !== "tracking" && typeof Tracking !== "undefined") {
+      Tracking.stopRefresh && Tracking.stopRefresh();
+    }
+
     switch (tab) {
       case "home":
         if (studentProfile) Home.render(studentProfile);

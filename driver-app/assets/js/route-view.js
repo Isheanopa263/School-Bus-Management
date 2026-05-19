@@ -77,6 +77,11 @@ const RouteView = (() => {
       .getElementById("end-trip-btn-alt")
       .addEventListener("click", openEndModal);
 
+    // Start trip from completed state
+    document
+      .getElementById("start-trip-btn-completed")
+      .addEventListener("click", openStartModal);
+
     // Modal: start trip
     document
       .getElementById("close-start-modal")
@@ -229,8 +234,12 @@ const RouteView = (() => {
       renderQuickStats(statsEl, data);
 
       // Restore active trip state
-      if (data.active_trip && data.active_trip.status === "ongoing") {
-        restoreActiveTrip(data.active_trip);
+      if (data.active_trip) {
+        if (data.active_trip.status === "ongoing") {
+          restoreActiveTrip(data.active_trip);
+        } else if (data.active_trip.status === "completed") {
+          setTripCompleted(data.active_trip);
+        }
       }
     } catch (err) {
       summaryEl.innerHTML = `
@@ -507,14 +516,15 @@ const RouteView = (() => {
 
   async function handleEndTrip() {
     if (!activeTripId) return;
+
     const confirmBtn = document.getElementById("confirm-end-btn");
     confirmBtn.disabled = true;
     confirmBtn.textContent = "Ending...";
 
     try {
-      await DriverAPI.endTrip(activeTripId);
+      const result = await DriverAPI.endTrip(activeTripId);
       closeEndModal();
-      setTripIdle();
+      setTripCompleted(result.trip);
     } catch (err) {
       const msg =
         err.status === 404
@@ -662,6 +672,30 @@ const RouteView = (() => {
     } catch (err) {
       container.innerHTML = `<p class="text-muted">Failed to load history</p>`;
     }
+  }
+
+  function setTripCompleted(trip) {
+    activeTripId = null;
+    tripStartTime = null;
+    stopTimer();
+    GPS.stop();
+
+    document.getElementById("trip-idle").classList.add("hidden");
+    document.getElementById("trip-active").classList.add("hidden");
+    document.getElementById("trip-completed").classList.remove("hidden");
+
+    document.getElementById("completed-trip-type").textContent = trip.trip_type
+      ? trip.trip_type.charAt(0).toUpperCase() + trip.trip_type.slice(1)
+      : "Trip";
+
+    document.getElementById("completed-trip-time").textContent = trip.end_time
+      ? new Date(trip.end_time).toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        })
+      : "Completed";
+
+    localStorage.removeItem("active_trip");
   }
 
   return { init, toggleStop };
