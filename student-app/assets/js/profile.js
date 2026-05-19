@@ -238,7 +238,7 @@ const Profile = (() => {
       const profile = data.profile;
 
       // Update stored info
-      localStorage.setItem(
+      sessionStorage.setItem(
         "student_info",
         JSON.stringify({
           full_name: profile.full_name,

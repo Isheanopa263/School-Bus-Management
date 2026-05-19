@@ -40,8 +40,8 @@ const Auth = (() => {
         errorEl.classList.add("visible");
         return;
       }
-      localStorage.setItem("student_token", data.token);
-      localStorage.setItem("student_info", JSON.stringify(data.user));
+      sessionStorage.setItem("student_token", data.token);
+      sessionStorage.setItem("student_info", JSON.stringify(data.user));
       App.showScreen("main");
     } catch (err) {
       errorEl.textContent =
@@ -104,8 +104,8 @@ const Auth = (() => {
         emergency_contact_phone: emergency || undefined,
       });
 
-      localStorage.setItem("student_token", data.token);
-      localStorage.setItem("student_info", JSON.stringify(data.user));
+      sessionStorage.setItem("student_token", data.token);
+      sessionStorage.setItem("student_info", JSON.stringify(data.user));
       App.showScreen("main");
     } catch (err) {
       errorEl.textContent =

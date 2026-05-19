@@ -1,7 +1,7 @@
 const API_BASE = "http://localhost:3000/api";
 
 async function apiFetch(endpoint, options = {}) {
-  const token = localStorage.getItem("student_token");
+  const token = sessionStorage.getItem("student_token");
 
   const headers = {
     "Content-Type": "application/json",
@@ -17,14 +17,14 @@ async function apiFetch(endpoint, options = {}) {
 
     // Handle 401 - only redirect if NOT on welcome/login screen
     if (response.status === 401) {
-      const currentScreen = localStorage.getItem("current_screen");
+      const currentScreen = sessionStorage.getItem("current_screen");
       if (
         currentScreen !== "welcome" &&
         currentScreen !== "login" &&
         currentScreen !== "register"
       ) {
-        localStorage.removeItem("student_token");
-        localStorage.removeItem("student_info");
+        sessionStorage.removeItem("student_token");
+        sessionStorage.removeItem("student_info");
         App.showScreen("welcome");
         return null;
       }

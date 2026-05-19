@@ -57,8 +57,8 @@ const LoginScreen = (() => {
       const data = await DriverAPI.login(email, password);
 
       // Store token + driver info
-      localStorage.setItem("driver_token", data.token);
-      localStorage.setItem("driver_info", JSON.stringify(data.driver));
+      sessionStorage.setItem("driver_token", data.token);
+      sessionStorage.setItem("driver_info", JSON.stringify(data.driver));
 
       // Navigate to route view
       App.showScreen("route");

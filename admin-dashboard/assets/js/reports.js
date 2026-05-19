@@ -97,7 +97,7 @@
     if (routeId) params.append("route_id", routeId);
     if (currentTab === "driver-hours") params.append("period", period);
 
-    const token = localStorage.getItem("admin_token");
+    const token = sessionStorage.getItem("admin_token");
     window.open(
       `${API_BASE}/api/reports/${currentTab}?${params}&token=${token}`,
       "_blank",

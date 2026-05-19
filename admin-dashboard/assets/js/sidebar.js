@@ -13,14 +13,14 @@
   if (collapseBtn) {
     collapseBtn.addEventListener("click", () => {
       sidebar.classList.toggle("collapsed");
-      localStorage.setItem(
+      sessionStorage.setItem(
         "sidebar_collapsed",
         sidebar.classList.contains("collapsed"),
       );
     });
 
     // Restore state
-    if (localStorage.getItem("sidebar_collapsed") === "true") {
+    if (sessionStorage.getItem("sidebar_collapsed") === "true") {
       sidebar.classList.add("collapsed");
     }
   }

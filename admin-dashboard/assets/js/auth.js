@@ -4,13 +4,28 @@
  * Other pages: checks token, handles logout
  */
 (function () {
+  function isReloadNavigation() {
+    try {
+      const nav = performance.getEntriesByType("navigation");
+      if (nav && nav.length) return nav[0].type === "reload";
+      return performance.navigation && performance.navigation.type === 1;
+    } catch {
+      return false;
+    }
+  }
+
+  // Logout on refresh
+  if (isReloadNavigation()) {
+    sessionStorage.removeItem("admin_token");
+    sessionStorage.removeItem("admin_user");
+  }
+
   const isLoginPage =
     window.location.pathname.endsWith("index.html") ||
     window.location.pathname.endsWith("/admin-dashboard/");
 
   if (isLoginPage) {
-    // ── Login Page ────────────────────────────────────────────────────────
-    const token = localStorage.getItem("admin_token");
+    const token = sessionStorage.getItem("admin_token");
     if (token) {
       window.location.href = "dashboard.html";
       return;
@@ -48,16 +63,12 @@
           errorEl.textContent = "Access restricted to administrators";
           errorEl.classList.add("show");
           btn.disabled = false;
-          btn.innerHTML = `<span>Sign in</span>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <line x1="5" y1="12" x2="19" y2="12"/>
-              <polyline points="12 5 19 12 12 19"/>
-            </svg>`;
+          btn.innerHTML = `<span>Sign in</span>`;
           return;
         }
 
-        localStorage.setItem("admin_token", data.token);
-        localStorage.setItem("admin_user", JSON.stringify(data.user));
+        sessionStorage.setItem("admin_token", data.token);
+        sessionStorage.setItem("admin_user", JSON.stringify(data.user));
         window.location.href = "dashboard.html";
       } catch (err) {
         errorEl.textContent =
@@ -68,27 +79,21 @@
               : "Login failed. Please try again.";
         errorEl.classList.add("show");
         btn.disabled = false;
-        btn.innerHTML = `<span>Sign in</span>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <line x1="5" y1="12" x2="19" y2="12"/>
-            <polyline points="12 5 19 12 12 19"/>
-          </svg>`;
+        btn.innerHTML = `<span>Sign in</span>`;
       }
     });
   } else {
-    // ── Protected Pages ───────────────────────────────────────────────────
-    const token = localStorage.getItem("admin_token");
+    const token = sessionStorage.getItem("admin_token");
     if (!token) {
       window.location.href = "index.html";
       return;
     }
 
-    // Logout button
     const logoutBtn = document.getElementById("logoutBtn");
     if (logoutBtn) {
       logoutBtn.addEventListener("click", () => {
-        localStorage.removeItem("admin_token");
-        localStorage.removeItem("admin_user");
+        sessionStorage.removeItem("admin_token");
+        sessionStorage.removeItem("admin_user");
         window.location.href = "index.html";
       });
     }

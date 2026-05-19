@@ -14,13 +14,23 @@ if ("serviceWorker" in navigator) {
  */
 const App = (() => {
   function init() {
-    const token = localStorage.getItem("driver_token");
+    const nav = performance.getEntriesByType("navigation");
+    const isReload = nav.length ? nav[0].type === "reload" : false;
+
+    if (isReload) {
+      sessionStorage.removeItem("driver_token");
+      sessionStorage.removeItem("driver_info");
+      sessionStorage.removeItem("active_trip");
+    }
+
+    const token = sessionStorage.getItem("driver_token");
+
     if (token && !isTokenExpired(token)) {
       showScreen("route");
     } else {
-      // Clear any stale data
-      localStorage.removeItem("driver_token");
-      localStorage.removeItem("driver_info");
+      sessionStorage.removeItem("driver_token");
+      sessionStorage.removeItem("driver_info");
+      sessionStorage.removeItem("active_trip");
       showScreen("login");
     }
   }
@@ -49,20 +59,24 @@ const App = (() => {
   }
 
   function logout() {
-    localStorage.removeItem("driver_token");
-    localStorage.removeItem("driver_info");
+    sessionStorage.removeItem("driver_token");
+    sessionStorage.removeItem("driver_info");
+    sessionStorage.removeItem("active_trip");
     showScreen("login");
   }
 
   function isTokenExpired(token) {
     try {
-      const payload = JSON.parse(atob(token.split(".")[1]));
+      const parts = token.split(".");
+      if (parts.length !== 3) return true;
+      const payload = JSON.parse(atob(parts[1]));
+      if (!payload.exp) return false;
       return payload.exp * 1000 < Date.now();
-    } catch {
-      return true;
+    } catch (err) {
+      console.warn("Token check error:", err.message);
+      return false;
     }
   }
-
   return { init, showScreen, logout };
 })();
 

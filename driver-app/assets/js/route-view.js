@@ -20,7 +20,7 @@ const RouteView = (() => {
 
   // ── Init ──────────────────────────────────────────────────────────────
   async function init() {
-    const driver = JSON.parse(localStorage.getItem("driver_info") || "{}");
+    const driver = JSON.parse(sessionStorage.getItem("driver_info") || "{}");
 
     // Set all driver name/bus displays
     setTextContent("sidebar-driver-name", driver.full_name || "Driver");
@@ -394,7 +394,7 @@ const RouteView = (() => {
 
     startTimer();
 
-    localStorage.setItem(
+    sessionStorage.setItem(
       "active_trip",
       JSON.stringify({
         id: trip.id,
@@ -428,7 +428,7 @@ const RouteView = (() => {
     document.getElementById("start-trip-btn").disabled = false;
     document.getElementById("start-trip-btn-alt").disabled = false;
 
-    localStorage.removeItem("active_trip");
+    sessionStorage.removeItem("active_trip");
   }
 
   function restoreActiveTrip(trip) {
@@ -695,7 +695,7 @@ const RouteView = (() => {
         })
       : "Completed";
 
-    localStorage.removeItem("active_trip");
+    sessionStorage.removeItem("active_trip");
   }
 
   return { init, toggleStop };

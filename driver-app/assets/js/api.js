@@ -6,7 +6,7 @@ const API_BASE = "http://localhost:3000/api";
  * - Returns parsed JSON or throws error object
  */
 async function apiFetch(endpoint, options = {}) {
-  const token = localStorage.getItem("driver_token");
+  const token = sessionStorage.getItem("driver_token");
 
   const headers = {
     "Content-Type": "application/json",

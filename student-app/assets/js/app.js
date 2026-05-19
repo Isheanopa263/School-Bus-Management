@@ -17,12 +17,22 @@ const App = (() => {
   let studentProfile = null;
 
   function init() {
-    const token = localStorage.getItem("student_token");
+    const nav = performance.getEntriesByType("navigation");
+    const isReload = nav.length ? nav[0].type === "reload" : false;
+
+    if (isReload) {
+      sessionStorage.removeItem("student_token");
+      sessionStorage.removeItem("student_info");
+      sessionStorage.removeItem("current_screen");
+    }
+
+    const token = sessionStorage.getItem("student_token");
+
     if (token && !isTokenExpired(token)) {
       showScreen("main");
     } else {
-      localStorage.removeItem("student_token");
-      localStorage.removeItem("student_info");
+      sessionStorage.removeItem("student_token");
+      sessionStorage.removeItem("student_info");
       showScreen("welcome");
     }
   }
@@ -32,7 +42,7 @@ const App = (() => {
     const template = document.getElementById(`tpl-${name}`);
     if (!template) return;
 
-    localStorage.setItem("current_screen", name);
+    sessionStorage.setItem("current_screen", name);
     app.innerHTML = "";
     app.appendChild(template.content.cloneNode(true));
 
@@ -89,7 +99,7 @@ const App = (() => {
       Bus.render(studentProfile);
     } catch (err) {
       console.error("Profile load error:", err);
-      const stored = JSON.parse(localStorage.getItem("student_info") || "{}");
+      const stored = JSON.parse(sessionStorage.getItem("student_info") || "{}");
       setHeaderInfo(stored);
     }
     // Initialize push notifications
@@ -155,17 +165,21 @@ const App = (() => {
   }
 
   function logout() {
-    localStorage.removeItem("student_token");
-    localStorage.removeItem("student_info");
+    sessionStorage.removeItem("student_token");
+    sessionStorage.removeItem("student_info");
     showScreen("welcome");
   }
 
   function isTokenExpired(token) {
     try {
-      const payload = JSON.parse(atob(token.split(".")[1]));
+      const parts = token.split(".");
+      if (parts.length !== 3) return true;
+      const payload = JSON.parse(atob(parts[1]));
+      if (!payload.exp) return false; // No expiry = never expires
       return payload.exp * 1000 < Date.now();
-    } catch {
-      return true;
+    } catch (err) {
+      console.warn("Token check error:", err.message);
+      return false; // Don't logout on parse error, let backend validate
     }
   }
 

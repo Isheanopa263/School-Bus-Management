@@ -5,7 +5,7 @@ const API_BASE = "http://localhost:3000/api";
  * Attaches JWT token, handles errors
  */
 async function apiFetch(endpoint, options = {}) {
-  const token = localStorage.getItem("admin_token");
+  const token = sessionStorage.getItem("admin_token");
 
   const headers = {
     "Content-Type": "application/json",
@@ -25,8 +25,8 @@ async function apiFetch(endpoint, options = {}) {
         window.location.pathname.endsWith("index.html") ||
         window.location.pathname.endsWith("/admin-dashboard/");
       if (!isLoginPage) {
-        localStorage.removeItem("admin_token");
-        localStorage.removeItem("admin_user");
+        sessionStorage.removeItem("admin_token");
+        sessionStorage.removeItem("admin_user");
         window.location.href = "index.html";
         return null;
       }

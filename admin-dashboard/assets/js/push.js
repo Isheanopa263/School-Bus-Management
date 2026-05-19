@@ -71,7 +71,7 @@ const AdminPush = (() => {
 
   async function saveToken(token) {
     try {
-      const adminToken = localStorage.getItem("admin_token");
+      const adminToken = sessionStorage.getItem("admin_token");
       await fetch("http://localhost:3000/api/notifications/token", {
         method: "PUT",
         headers: {
