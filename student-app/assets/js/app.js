@@ -17,15 +17,6 @@ const App = (() => {
   let studentProfile = null;
 
   function init() {
-    const nav = performance.getEntriesByType("navigation");
-    const isReload = nav.length ? nav[0].type === "reload" : false;
-
-    if (isReload) {
-      sessionStorage.removeItem("student_token");
-      sessionStorage.removeItem("student_info");
-      sessionStorage.removeItem("current_screen");
-    }
-
     const token = sessionStorage.getItem("student_token");
 
     if (token && !isTokenExpired(token)) {

@@ -14,15 +14,6 @@ if ("serviceWorker" in navigator) {
  */
 const App = (() => {
   function init() {
-    const nav = performance.getEntriesByType("navigation");
-    const isReload = nav.length ? nav[0].type === "reload" : false;
-
-    if (isReload) {
-      sessionStorage.removeItem("driver_token");
-      sessionStorage.removeItem("driver_info");
-      sessionStorage.removeItem("active_trip");
-    }
-
     const token = sessionStorage.getItem("driver_token");
 
     if (token && !isTokenExpired(token)) {

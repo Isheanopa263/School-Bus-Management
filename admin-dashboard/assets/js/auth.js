@@ -14,12 +14,6 @@
     }
   }
 
-  // Logout on refresh
-  if (isReloadNavigation()) {
-    sessionStorage.removeItem("admin_token");
-    sessionStorage.removeItem("admin_user");
-  }
-
   const isLoginPage =
     window.location.pathname.endsWith("index.html") ||
     window.location.pathname.endsWith("/admin-dashboard/");
