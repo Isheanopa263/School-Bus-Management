@@ -3,25 +3,31 @@ const { createClient } = require("redis");
 let client = null;
 let redisAvailable = false;
 
-// Only connect if REDIS_URL is set
 if (process.env.REDIS_URL) {
   client = createClient({
     url: process.env.REDIS_URL,
     socket: {
+      connectTimeout: 2000, // connection attempt fails after 2s
       reconnectStrategy: (retries) => {
         if (retries > 3) {
-          console.warn("Redis: max retries reached, running without cache");
+          console.warn("Redis: max retries reached, disabling cache");
           redisAvailable = false;
-          return false; // stop retrying
+          return false; // stop reconnecting
         }
-        return retries * 500; // wait 500ms between retries
+        return Math.min(retries * 100, 3000); // 100ms, 200ms, 300ms, max 3s
       },
     },
+    // This is the key: don't queue commands when offline
+    disableOfflineQueue: true,
+    // Commands fail after 1s if no connection
+    commandsQueueMaxLength: 1,
   });
 
   client.on("error", (err) => {
-    console.warn("Redis unavailable - running without cache:", err.message);
-    redisAvailable = false;
+    // This fires on connection errors AND command errors
+    if (err.code === "ECONNREFUSED" || err.code === "ENOTFOUND") {
+      redisAvailable = false;
+    }
   });
 
   client.on("connect", () => {
@@ -29,7 +35,15 @@ if (process.env.REDIS_URL) {
     redisAvailable = true;
   });
 
-  // Connect but don't crash if it fails
+  client.on("ready", () => {
+    redisAvailable = true;
+  });
+
+  client.on("end", () => {
+    redisAvailable = false;
+  });
+
+  // Connect but don't block startup
   client.connect().catch((err) => {
     console.warn(
       "Redis connection failed - running without cache:",
@@ -37,28 +51,41 @@ if (process.env.REDIS_URL) {
     );
     redisAvailable = false;
   });
-} else {
+} else if (process.env.NODE_ENV !== "test") {
   console.warn("REDIS_URL not set - running without cache");
 }
 
-// ── Helpers (all fail silently if Redis is down) ──────────────────────────────
+// ── Helpers: Add timeout to each command ──────────────────────────────
+
+function withTimeout(promise, ms = 1000) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) =>
+      setTimeout(() => reject(new Error("Redis command timeout")), ms),
+    ),
+  ]);
+}
 
 async function cacheActiveTrip(trip_id, data) {
   if (!redisAvailable || !client) return;
   try {
-    await client.setEx(`trip:${trip_id}`, 3600, JSON.stringify(data));
+    await withTimeout(
+      client.setEx(`trip:${trip_id}`, 3600, JSON.stringify(data)),
+      500,
+    );
   } catch (err) {
-    console.warn("Cache write failed:", err.message);
+    // Silently fail - either timeout or connection error
+    redisAvailable = false;
   }
 }
 
 async function getCachedTrip(trip_id) {
   if (!redisAvailable || !client) return null;
   try {
-    const data = await client.get(`trip:${trip_id}`);
+    const data = await withTimeout(client.get(`trip:${trip_id}`), 500);
     return data ? JSON.parse(data) : null;
   } catch (err) {
-    console.warn("Cache read failed:", err.message);
+    redisAvailable = false;
     return null;
   }
 }
@@ -66,32 +93,31 @@ async function getCachedTrip(trip_id) {
 async function invalidateTrip(trip_id) {
   if (!redisAvailable || !client) return;
   try {
-    await client.del(`trip:${trip_id}`);
+    await withTimeout(client.del(`trip:${trip_id}`), 500);
   } catch (err) {
-    console.warn("Cache invalidate failed:", err.message);
+    redisAvailable = false;
   }
 }
 
 async function cacheLatestLocation(bus_id, locationData) {
   if (!redisAvailable || !client) return;
   try {
-    await client.setEx(
-      `bus_location:${bus_id}`,
-      60,
-      JSON.stringify(locationData),
+    await withTimeout(
+      client.setEx(`bus_location:${bus_id}`, 60, JSON.stringify(locationData)),
+      500,
     );
   } catch (err) {
-    console.warn("Cache write failed:", err.message);
+    redisAvailable = false;
   }
 }
 
 async function getCachedLocation(bus_id) {
   if (!redisAvailable || !client) return null;
   try {
-    const data = await client.get(`bus_location:${bus_id}`);
+    const data = await withTimeout(client.get(`bus_location:${bus_id}`), 500);
     return data ? JSON.parse(data) : null;
   } catch (err) {
-    console.warn("Cache read failed:", err.message);
+    redisAvailable = false;
     return null;
   }
 }
@@ -99,9 +125,24 @@ async function getCachedLocation(bus_id) {
 async function publishLocation(bus_id, data) {
   if (!redisAvailable || !client) return;
   try {
-    await client.publish(`location:${bus_id}`, JSON.stringify(data));
+    await withTimeout(
+      client.publish(`location:${bus_id}`, JSON.stringify(data)),
+      500,
+    );
   } catch (err) {
-    console.warn("Publish failed:", err.message);
+    redisAvailable = false;
+  }
+}
+
+async function quit() {
+  if (client) {
+    try {
+      await client.quit();
+    } catch {
+      try {
+        await client.disconnect();
+      } catch {}
+    }
   }
 }
 
@@ -114,4 +155,5 @@ module.exports = {
   cacheLatestLocation,
   getCachedLocation,
   publishLocation,
+  quit,
 };

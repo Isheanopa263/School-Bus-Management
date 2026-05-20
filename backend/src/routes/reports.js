@@ -5,33 +5,58 @@ const PDFDocument = require("pdfkit");
 const router = express.Router();
 
 function handleExport(res, rows, filename, format) {
+  // CSV Export
   if (format === "csv") {
-    const parser = new Parser();
-    const csv = parser.parse(rows);
-    res.header("Content-Type", "text/csv");
-    res.attachment(`${filename}.csv`);
-    return res.send(csv);
+    if (!rows || rows.length === 0) {
+      res.header("Content-Type", "text/csv");
+      res.attachment(`${filename}.csv`);
+      return res.send("No data available for the selected period");
+    }
+    try {
+      const parser = new Parser();
+      const csv = parser.parse(rows);
+      res.header("Content-Type", "text/csv");
+      res.attachment(`${filename}.csv`);
+      return res.send(csv);
+    } catch (err) {
+      console.error("CSV parse error:", err.message);
+      res.header("Content-Type", "text/csv");
+      res.attachment(`${filename}.csv`);
+      return res.send("No data available");
+    }
   }
+
+  // PDF Export - optional, add if needed
   if (format === "pdf") {
-    const doc = new PDFDocument({ margin: 30, size: "A4" });
-    res.header("Content-Type", "application/pdf");
-    res.attachment(`${filename}.pdf`);
+    const doc = new PDFDocument();
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename=${filename}.pdf`,
+    );
     doc.pipe(res);
-    doc.fontSize(16).text(filename.replace(/-/g, " "), { align: "center" });
-    doc.moveDown(2);
-    doc.fontSize(8);
-    rows.slice(0, 100).forEach((row) => {
-      const text = Object.entries(row)
-        .map(([k, v]) => `${k}: ${v ?? ""}`)
-        .join(" | ");
-      doc.text(text.substring(0, 90));
-      doc.moveDown(0.3);
-      if (doc.y > 750) doc.addPage();
-    });
+    doc.fontSize(16).text(filename, { align: "center" });
+    doc.moveDown();
+    if (!rows || rows.length === 0) {
+      doc.text("No data available for the selected period");
+    } else {
+      rows.forEach((row, i) => {
+        doc.fontSize(10).text(JSON.stringify(row, null, 2));
+        if (i < rows.length - 1) doc.moveDown(0.5);
+      });
+    }
     doc.end();
     return;
   }
-  res.json({ report: rows, count: rows.length });
+
+  // Default: JSON response
+  if (!rows || rows.length === 0) {
+    return res.json({
+      data: [],
+      message: "No data available for the selected period",
+    });
+  }
+  return res.json({ data: rows });
 }
 
 // TRIPS
@@ -70,7 +95,12 @@ router.get("/trips", async (req, res) => {
     }
     query += ` ORDER BY t.trip_date DESC LIMIT 1000`;
     const { rows } = await db.query(query, params);
-    handleExport(res, rows, `trips-report-${from}-to-${to}`, format);
+    handleExport(
+      res,
+      rows,
+      `trips-report-${from || "all"}-to-${to || "all"}`,
+      format,
+    );
   } catch (err) {
     console.error("Trips error:", err);
     res.status(500).json({ error: err.message });
@@ -107,7 +137,7 @@ router.get("/delays", async (req, res) => {
   }
 });
 
-// DRIVER HOURS - Fixed u.userid
+// DRIVER HOURS
 router.get("/driver-hours", async (req, res) => {
   const { from, to, period = "week", format } = req.query;
   try {
@@ -138,7 +168,7 @@ router.get("/driver-hours", async (req, res) => {
   }
 });
 
-// BUS UTILIZATION - Fixed date math
+// BUS UTILIZATION
 router.get("/bus-utilization", async (req, res) => {
   const { from, to, format } = req.query;
   try {

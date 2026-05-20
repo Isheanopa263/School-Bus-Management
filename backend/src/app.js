@@ -2,13 +2,20 @@ const path = require("path");
 const express = require("express");
 const cors = require("cors");
 const http = require("http");
-const { initSocket } = require("./services/socket");
-require("./services/redis");
-// Load env from root directory
-require("dotenv").config({ path: path.resolve(__dirname, "../.env") });
+
+// Load env - use .env.test for test environment
+const envFile = process.env.NODE_ENV === "test" ? "../.env.test" : "../.env";
+require("dotenv").config({ path: path.resolve(__dirname, envFile) });
 
 const app = express();
 const server = http.createServer(app);
+
+// Only init socket and redis in non-test mode
+if (process.env.NODE_ENV !== "test") {
+  const { initSocket } = require("./services/socket");
+  require("./services/redis");
+  initSocket(server);
+}
 
 // Middleware
 app.use(
@@ -66,12 +73,13 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: "Internal server error" });
 });
 
-initSocket(server);
-
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-  console.log(`Environment: ${process.env.NODE_ENV || "development"}`);
-});
+// Only start server if not in test mode
+if (process.env.NODE_ENV !== "test") {
+  const PORT = process.env.PORT || 3000;
+  server.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+    console.log(`Environment: ${process.env.NODE_ENV || "development"}`);
+  });
+}
 
 module.exports = { app, server };

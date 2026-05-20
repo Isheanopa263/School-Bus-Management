@@ -9,7 +9,10 @@ try {
   app = admin.initializeApp({
     credential: admin.credential.cert(serviceAccount),
   });
-  console.log("Firebase Admin initialized");
+
+  if (process.env.NODE_ENV !== "test") {
+    console.log("Firebase Admin initialized");
+  }
 } catch (err) {
   console.warn("Firebase not configured. Notifications disabled.");
 }
