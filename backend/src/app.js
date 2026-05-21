@@ -29,6 +29,7 @@ app.use(
       "http://127.0.0.1:5503",
       "http://localhost:5503",
       "https://bus-system-62850.firebaseapp.com",
+      "https://your-app.vercel.app",
     ],
     credentials: true,
   }),
