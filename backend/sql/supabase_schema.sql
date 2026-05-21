@@ -1,4 +1,4 @@
--- Enable required extensions
+-- Enable extensions
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS postgis;
 
@@ -53,7 +53,7 @@ CREATE TABLE IF NOT EXISTS students (
     userid UUID REFERENCES users(userid) ON DELETE CASCADE,
     roll VARCHAR(50),
     assigned_stop_id UUID REFERENCES stops(id),
-    bus_request_status VARCHAR(20) DEFAULT 'pending' CHECK (bus_request_status IN ('pending','approved','rejected','inactive')),
+    bus_request_status VARCHAR(20) DEFAULT 'inactive' CHECK (bus_request_status IN ('pending','approved','rejected','inactive')),
     emergency_contact_phone VARCHAR(20)
 );
 
@@ -67,7 +67,7 @@ CREATE TABLE IF NOT EXISTS drivers (
     current_bus_id UUID REFERENCES buses(bid)
 );
 
--- 7. Route_assignments
+-- 7. Route Assignments
 CREATE TABLE IF NOT EXISTS route_assignments (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     route_id UUID REFERENCES routes(rid) ON DELETE CASCADE,
@@ -80,10 +80,10 @@ CREATE TABLE IF NOT EXISTS route_assignments (
     UNIQUE(driver_id, effective_date, shift)
 );
 
--- 8. trips
+-- 8. Trips
 CREATE TABLE IF NOT EXISTS trips (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    assignment_id UUID REFERENCES route_assignments(id),
+    assignment_id UUID REFERENCES route_assignments(id) ON DELETE SET NULL,
     trip_date DATE NOT NULL,
     trip_type VARCHAR(20) CHECK (trip_type IN ('pickup','drop')),
     start_time TIMESTAMPTZ,
@@ -92,7 +92,7 @@ CREATE TABLE IF NOT EXISTS trips (
     delay_minutes INT DEFAULT 0
 );
 
--- 9. live_locations
+-- 9. Live Locations
 CREATE TABLE IF NOT EXISTS live_locations (
     id BIGSERIAL PRIMARY KEY,
     bus_id UUID REFERENCES buses(bid) ON DELETE CASCADE,
@@ -102,22 +102,20 @@ CREATE TABLE IF NOT EXISTS live_locations (
     heading DECIMAL(5,2),
     recorded_at TIMESTAMPTZ DEFAULT NOW()
 );
-CREATE INDEX IF NOT EXISTS idx_live_locations_bus_time ON live_locations(bus_id, recorded_at DESC);
-CREATE INDEX IF NOT EXISTS idx_live_locations_gis ON live_locations USING GIST(location);
 
--- 10. trip_events
+-- 10. Trip Events
 CREATE TABLE IF NOT EXISTS trip_events (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     trip_id UUID REFERENCES trips(id) ON DELETE CASCADE,
     bus_id UUID REFERENCES buses(bid),
-    event_type VARCHAR(30) CHECK (event_type IN ('overspeeding','route_deviation','breakdown','geofence_exit','harsh_braking')),
+    event_type VARCHAR(30) CHECK (event_type IN ('overspeeding','route_deviation','breakdown','geofence_exit','harsh_braking','sos')),
     severity VARCHAR(10) CHECK (severity IN ('low','medium','high')),
     location GEOMETRY(POINT, 4326),
     details JSONB,
     occurred_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 11. student_attendance
+-- 11. Student Attendance
 CREATE TABLE IF NOT EXISTS student_attendance (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     trip_id UUID REFERENCES trips(id) ON DELETE CASCADE,
@@ -129,7 +127,7 @@ CREATE TABLE IF NOT EXISTS student_attendance (
     UNIQUE(trip_id, student_id, event_type)
 );
 
--- 12. notifications
+-- 12. Notifications
 CREATE TABLE IF NOT EXISTS notifications (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID REFERENCES users(userid) ON DELETE CASCADE,
@@ -140,7 +138,7 @@ CREATE TABLE IF NOT EXISTS notifications (
     sent_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 13. complaints
+-- 13. Complaints
 CREATE TABLE IF NOT EXISTS complaints (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     raised_by UUID REFERENCES users(userid) ON DELETE SET NULL,
@@ -156,13 +154,36 @@ CREATE TABLE IF NOT EXISTS complaints (
     resolved_at TIMESTAMPTZ
 );
 
--- 14. daily_route_stats
-CREATE TABLE IF NOT EXISTS daily_route_stats (
-    stat_date DATE,
-    route_id UUID REFERENCES routes(rid),
-    on_time_percentage DECIMAL(5,2),
-    avg_delay_min DECIMAL(5,2),
-    total_trips INT,
-    total_students INT,
-    PRIMARY KEY (stat_date, route_id)
+-- 14. Bus Requests
+CREATE TABLE IF NOT EXISTS bus_requests (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    student_id UUID REFERENCES students(sid) ON DELETE CASCADE,
+    requested_stop_id UUID REFERENCES stops(id),
+    requested_route_id UUID REFERENCES routes(rid),
+    status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending','approved','rejected','cancelled')),
+    notes TEXT,
+    requested_by UUID REFERENCES users(userid),
+    approved_by UUID REFERENCES users(userid),
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    home_location GEOMETRY(Point, 4326),
+    auto_assigned BOOLEAN DEFAULT false,
+    UNIQUE(student_id, status)
 );
+
+-- 15. Trip Stop Visits
+CREATE TABLE IF NOT EXISTS trip_stop_visits (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    trip_id UUID REFERENCES trips(id) ON DELETE CASCADE,
+    stop_id UUID REFERENCES stops(id) ON DELETE CASCADE,
+    arrived_at TIMESTAMPTZ DEFAULT NOW(),
+    notified_students_count INT DEFAULT 0,
+    UNIQUE(trip_id, stop_id)
+);
+
+-- Indexes
+CREATE INDEX IF NOT EXISTS idx_live_locations_bus_time ON live_locations(bus_id, recorded_at DESC);
+CREATE INDEX IF NOT EXISTS idx_live_locations_gis ON live_locations USING GIST(location);
+CREATE INDEX IF NOT EXISTS idx_stops_gis ON stops USING GIST(location);
+CREATE INDEX IF NOT EXISTS idx_routes_gis ON routes USING GIST(route_path);
+CREATE INDEX IF NOT EXISTS idx_trip_stop_visits_trip ON trip_stop_visits(trip_id);
