@@ -72,14 +72,17 @@ const AdminPush = (() => {
   async function saveToken(token) {
     try {
       const adminToken = sessionStorage.getItem("admin_token");
-      await fetch("http://localhost:3000/api/notifications/token", {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${adminToken}`,
+      await fetch(
+        "https://school-bus-management-production.up.railway.app/api/notifications/token",
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${adminToken}`,
+          },
+          body: JSON.stringify({ fcm_token: token }),
         },
-        body: JSON.stringify({ fcm_token: token }),
-      });
+      );
       console.log("[PUSH] Admin token saved");
     } catch (err) {
       console.warn("[PUSH] Admin token save failed:", err.message);

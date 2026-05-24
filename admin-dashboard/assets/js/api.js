@@ -1,4 +1,4 @@
-const API_BASE = "http://localhost:3000/api";
+const API_BASE = "https://school-bus-management-production.up.railway.app/api";
 
 /**
  * Core fetch wrapper for admin dashboard

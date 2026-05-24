@@ -60,14 +60,17 @@ const DriverPush = (() => {
   async function saveToken(token) {
     try {
       const driverToken = sessionStorage.getItem("driver_token");
-      await fetch("http://localhost:3000/api/notifications/token", {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${driverToken}`,
+      await fetch(
+        "https://school-bus-management-production.up.railway.app/api/notifications/token",
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${driverToken}`,
+          },
+          body: JSON.stringify({ fcm_token: token }),
         },
-        body: JSON.stringify({ fcm_token: token }),
-      });
+      );
       console.log("[PUSH] Token saved");
     } catch (err) {
       console.warn("[PUSH] Token save failed:", err.message);
