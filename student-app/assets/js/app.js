@@ -78,6 +78,11 @@ const App = (() => {
       link.addEventListener("click", () => switchTab(link.dataset.tab));
     });
 
+    // Mobile bottom nav
+    document.querySelectorAll(".mobile-nav-item[data-tab]").forEach((item) => {
+      item.addEventListener("click", () => switchTab(item.dataset.tab));
+    });
+
     // Logout
     document.getElementById("logoutBtn").addEventListener("click", logout);
 
