@@ -1677,4 +1677,27 @@ body {
   .tab-content {
     padding: 16px;
   }
+} /* Show bottom nav on mobile, hide top nav links */
+@media (max-width: 768px) {
+  .mobile-bottom-nav {
+    display: flex;
+  }
+
+  /* Add bottom padding to content so it doesn't hide behind nav */
+  .main-content {
+    padding-bottom: 80px;
+  }
+
+  /* Profile button still visible in top nav for mobile */
+  .nav-links {
+    display: none;
+  }
+
+  .btn-logout span {
+    display: none;
+  }
+
+  .btn-logout {
+    padding: 8px;
+  }
 }
