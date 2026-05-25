@@ -53,6 +53,15 @@ const App = (() => {
     }
   }
 
+  function initWelcome() {
+    document
+      .getElementById("goLoginBtn")
+      .addEventListener("click", () => showScreen("login"));
+    document
+      .getElementById("goRegisterBtn")
+      .addEventListener("click", () => showScreen("register"));
+  }
+
   async function initMain() {
     // Date
     const dateEl = document.getElementById("greetingDate");
@@ -64,42 +73,13 @@ const App = (() => {
       });
     }
 
-    // Sidebar toggle - mobile
-    document.getElementById("menu-toggle")?.addEventListener("click", () => {
-      document.getElementById("sidebar").classList.toggle("open");
-      document.getElementById("sidebar-overlay").classList.toggle("active");
-    });
-
-    // Sidebar collapse - desktop
-    document
-      .getElementById("sidebar-collapse")
-      ?.addEventListener("click", () => {
-        document.getElementById("sidebar").classList.toggle("collapsed");
-      });
-
-    // Sidebar overlay close
-    document
-      .getElementById("sidebar-overlay")
-      ?.addEventListener("click", () => {
-        document.getElementById("sidebar").classList.remove("open");
-        document.getElementById("sidebar-overlay").classList.remove("active");
-      });
-
-    // Sidebar nav switching
-    document.querySelectorAll(".sidebar-link[data-tab]").forEach((link) => {
-      link.addEventListener("click", () => {
-        switchTab(link.dataset.tab);
-        // Close mobile sidebar on nav click
-        document.getElementById("sidebar").classList.remove("open");
-        document.getElementById("sidebar-overlay").classList.remove("active");
-      });
+    // Nav tab switching
+    document.querySelectorAll(".nav-link[data-tab]").forEach((link) => {
+      link.addEventListener("click", () => switchTab(link.dataset.tab));
     });
 
     // Logout
     document.getElementById("logoutBtn").addEventListener("click", logout);
-    document
-      .getElementById("profileLogoutBtn")
-      ?.addEventListener("click", logout);
 
     // Load profile
     try {
@@ -113,7 +93,7 @@ const App = (() => {
       const stored = JSON.parse(sessionStorage.getItem("student_info") || "{}");
       setHeaderInfo(stored);
     }
-
+    // Initialize push notifications
     try {
       await Push.init();
     } catch (err) {
@@ -127,33 +107,20 @@ const App = (() => {
   }
 
   function setHeaderInfo(profile) {
-    const avatar = document.getElementById("sidebar-avatar");
-    const name = document.getElementById("sidebar-student-name");
-    const busNum = document.getElementById("sidebar-bus-number");
-    const topName = document.getElementById("top-student-name");
-    const greetingName = document.getElementById("greetingName");
-
+    const avatar = document.getElementById("headerAvatar");
+    const name = document.getElementById("greetingName");
     if (avatar && profile?.full_name) {
       avatar.textContent = profile.full_name.charAt(0).toUpperCase();
     }
     if (name && profile?.full_name) {
-      name.textContent = profile.full_name;
-    }
-    if (busNum && profile?.bus_number) {
-      busNum.textContent = `Bus ${profile.bus_number}`;
-    }
-    if (topName && profile?.full_name) {
-      topName.textContent = profile.full_name.split(" ")[0];
-    }
-    if (greetingName && profile?.full_name) {
-      greetingName.textContent = `Hello, ${profile.full_name.split(" ")[0]} 👋`;
+      name.textContent = `Hello, ${profile.full_name.split(" ")[0]} 👋`;
     }
   }
 
   function switchTab(tab) {
     currentTab = tab;
 
-    document.querySelectorAll(".sidebar-link[data-tab]").forEach((link) => {
+    document.querySelectorAll(".nav-link[data-tab]").forEach((link) => {
       link.classList.toggle("active", link.dataset.tab === tab);
     });
 
@@ -161,6 +128,7 @@ const App = (() => {
       section.classList.toggle("active", section.id === `tab-${tab}`);
     });
 
+    // Stop tracking refresh when leaving tracking tab
     if (tab !== "tracking" && typeof Tracking !== "undefined") {
       Tracking.stopRefresh && Tracking.stopRefresh();
     }
