@@ -73,8 +73,42 @@ const App = (() => {
       });
     }
 
-    // Nav tab switching
-    document.querySelectorAll(".nav-link[data-tab]").forEach((link) => {
+    // Sidebar collapse
+    const collapseBtn = document.getElementById("sidebarCollapse");
+    if (collapseBtn) {
+      collapseBtn.addEventListener("click", () => {
+        const sidebar = document.getElementById("sidebar");
+        sidebar.classList.toggle("collapsed");
+        localStorage.setItem(
+          "student_sidebar_collapsed",
+          sidebar.classList.contains("collapsed"),
+        );
+      });
+
+      // Restore state
+      if (localStorage.getItem("student_sidebar_collapsed") === "true") {
+        document.getElementById("sidebar").classList.add("collapsed");
+      }
+    }
+
+    // Mobile menu toggle
+    const menuToggle = document.getElementById("menuToggle");
+    const overlay = document.getElementById("sidebarOverlay");
+    if (menuToggle) {
+      menuToggle.addEventListener("click", () => {
+        document.getElementById("sidebar").classList.add("open");
+        overlay.classList.add("show");
+      });
+    }
+    if (overlay) {
+      overlay.addEventListener("click", () => {
+        document.getElementById("sidebar").classList.remove("open");
+        overlay.classList.remove("show");
+      });
+    }
+
+    // Sidebar nav links
+    document.querySelectorAll(".sidebar-link[data-tab]").forEach((link) => {
       link.addEventListener("click", () => switchTab(link.dataset.tab));
     });
 
@@ -93,46 +127,56 @@ const App = (() => {
       const stored = JSON.parse(sessionStorage.getItem("student_info") || "{}");
       setHeaderInfo(stored);
     }
-    // Initialize push notifications
+
+    Tracking.init();
+    Notifications.init();
+    Complaint.init();
+
     try {
       await Push.init();
     } catch (err) {
       console.warn("Push init failed:", err.message);
     }
-
-    Tracking.init();
-    Notifications.init();
-    Complaint.init();
-    Profile.render(studentProfile);
   }
 
   function setHeaderInfo(profile) {
-    const avatar = document.getElementById("headerAvatar");
-    const name = document.getElementById("greetingName");
+    const avatar = document.getElementById("sidebarAvatar");
+    const name = document.getElementById("sidebarStudentName");
+    const roll = document.getElementById("sidebarStudentRoll");
+    const greetingName = document.getElementById("greetingName");
+
     if (avatar && profile?.full_name) {
       avatar.textContent = profile.full_name.charAt(0).toUpperCase();
     }
     if (name && profile?.full_name) {
-      name.textContent = `Hello, ${profile.full_name.split(" ")[0]} 👋`;
+      name.textContent = profile.full_name;
+    }
+    if (roll && profile?.roll) {
+      roll.textContent = `Roll: ${profile.roll}`;
+    }
+    if (greetingName && profile?.full_name) {
+      greetingName.textContent = `Hello, ${profile.full_name.split(" ")[0]} 👋`;
     }
   }
 
   function switchTab(tab) {
     currentTab = tab;
 
-    document.querySelectorAll(".nav-link[data-tab]").forEach((link) => {
+    // Update sidebar links
+    document.querySelectorAll(".sidebar-link[data-tab]").forEach((link) => {
       link.classList.toggle("active", link.dataset.tab === tab);
     });
 
+    // Show tab content
     document.querySelectorAll(".tab-content").forEach((section) => {
       section.classList.toggle("active", section.id === `tab-${tab}`);
     });
 
-    // Stop tracking refresh when leaving tracking tab
-    if (tab !== "tracking" && typeof Tracking !== "undefined") {
-      Tracking.stopRefresh && Tracking.stopRefresh();
-    }
+    // Close mobile sidebar
+    document.getElementById("sidebar").classList.remove("open");
+    document.getElementById("sidebarOverlay").classList.remove("show");
 
+    // Refresh data
     switch (tab) {
       case "home":
         if (studentProfile) Home.render(studentProfile);

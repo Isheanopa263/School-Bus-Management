@@ -355,41 +355,61 @@
     <!-- ══════ MAIN APP ══════ -->
     <template id="tpl-main">
       <div class="screen">
-        <!-- Top Nav -->
-        <nav class="top-nav">
-          <div class="nav-container">
-            <div class="nav-brand">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-                <path
-                  d="M4 16V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v10"
-                  stroke="currentColor"
-                  stroke-width="2"
-                />
-                <path
-                  d="M4 16h16v2a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-2z"
-                  fill="currentColor"
-                />
-              </svg>
-              <span>BusTrack</span>
-            </div>
-            <div class="nav-links">
-              <button class="nav-link active" data-tab="home">Home</button>
-              <button class="nav-link" data-tab="bus">Bus Service</button>
-              <button class="nav-link" data-tab="tracking">Live Track</button>
-              <button class="nav-link" data-tab="notifications">Alerts</button>
-              <button class="nav-link" data-tab="complaint">Report</button>
-              <button class="nav-link" data-tab="profile">Profile</button>
-            </div>
-            <div class="nav-right">
-              <button
-                class="nav-avatar"
-                id="headerAvatar"
-                onclick="App.switchTab('profile')"
-                style="cursor: pointer; border: none"
-              >
-                S
-              </button>
-              <button class="btn-logout" id="logoutBtn">
+        <!-- Mobile Top Nav -->
+        <nav class="top-nav-mobile">
+          <button class="menu-toggle" id="menuToggle">
+            <svg
+              width="22"
+              height="22"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <line x1="3" y1="6" x2="21" y2="6" />
+              <line x1="3" y1="12" x2="21" y2="12" />
+              <line x1="3" y1="18" x2="21" y2="18" />
+            </svg>
+          </button>
+          <div class="top-nav-brand-mobile">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+              <path
+                d="M4 16V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v10"
+                stroke="currentColor"
+                stroke-width="2"
+              />
+              <path
+                d="M4 16h16v2a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-2z"
+                fill="currentColor"
+              />
+            </svg>
+            <span>BusTrack</span>
+          </div>
+        </nav>
+
+        <div class="app-layout">
+          <!-- Sidebar -->
+          <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+              <div class="sidebar-brand">
+                <div class="sidebar-brand-icon">
+                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+                    <path
+                      d="M4 16V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v10"
+                      stroke="#10b981"
+                      stroke-width="2"
+                    />
+                    <path
+                      d="M4 16h16v2a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-2z"
+                      fill="#10b981"
+                    />
+                    <circle cx="7.5" cy="16.5" r="1.5" fill="white" />
+                    <circle cx="16.5" cy="16.5" r="1.5" fill="white" />
+                  </svg>
+                </div>
+                <span class="sidebar-title">BusTrack</span>
+              </div>
+              <button class="sidebar-collapse-btn" id="sidebarCollapse">
                 <svg
                   width="18"
                   height="18"
@@ -398,246 +418,368 @@
                   stroke="currentColor"
                   stroke-width="2"
                 >
-                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-                  <path d="M16 17l5-5-5-5M21 12H9" />
+                  <polyline points="15 18 9 12 15 6" />
                 </svg>
-                <span>Logout</span>
               </button>
             </div>
-          </div>
-        </nav>
 
-        <!-- Content -->
-        <div class="main-content">
-          <!-- Home -->
-          <div class="tab-content active" id="tab-home">
-            <div class="home-greeting">
-              <div class="home-greeting-name" id="greetingName">Hello 👋</div>
-              <div class="home-greeting-sub" id="greetingDate"></div>
-            </div>
-            <div id="tripBanner" class="hidden"></div>
-            <div class="status-card" id="homeStatusCard">
-              <div style="text-align: center; padding: 20px">
-                <div class="spinner"></div>
-                <p style="color: var(--text-muted); font-size: 14px">
+            <!-- Student Profile -->
+            <div class="sidebar-profile">
+              <div class="profile-avatar" id="sidebarAvatar">S</div>
+              <div class="profile-info">
+                <div class="profile-name" id="sidebarStudentName">Student</div>
+                <div class="profile-bus" id="sidebarStudentRoll">
                   Loading...
-                </p>
+                </div>
               </div>
             </div>
-            <div class="quick-actions">
-              <button class="quick-action-card" onclick="App.switchTab('bus')">
-                <div class="quick-action-icon">🚌</div>
-                <div class="quick-action-label">Bus Service</div>
+
+            <nav class="sidebar-nav">
+              <div class="sidebar-section-label">Main</div>
+
+              <button class="sidebar-link active" data-tab="home">
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                  <polyline points="9 22 9 12 15 12 15 22" />
+                </svg>
+                <span class="sidebar-link-text">Dashboard</span>
               </button>
-              <button
-                class="quick-action-card"
-                onclick="App.switchTab('tracking')"
-              >
-                <div class="quick-action-icon">📍</div>
-                <div class="quick-action-label">Live Track</div>
+
+              <button class="sidebar-link" data-tab="tracking">
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                  <circle cx="12" cy="10" r="3" />
+                </svg>
+                <span class="sidebar-link-text">Live Tracking</span>
               </button>
-              <button
-                class="quick-action-card"
-                onclick="App.switchTab('notifications')"
-              >
-                <div class="quick-action-icon">🔔</div>
-                <div class="quick-action-label">Notifications</div>
+
+              <div class="sidebar-section-label">Bus Service</div>
+
+              <button class="sidebar-link" data-tab="bus">
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <rect x="3" y="5" width="18" height="12" rx="2" />
+                  <path d="M7 17v2M17 17v2" />
+                </svg>
+                <span class="sidebar-link-text">My Bus</span>
               </button>
-              <button
-                class="quick-action-card"
-                onclick="App.switchTab('complaint')"
-              >
-                <div class="quick-action-icon">⚠️</div>
-                <div class="quick-action-label">Report Issue</div>
+
+              <div class="sidebar-section-label">Communication</div>
+
+              <button class="sidebar-link" data-tab="notifications">
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                  <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+                </svg>
+                <span class="sidebar-link-text">Notifications</span>
+              </button>
+
+              <button class="sidebar-link" data-tab="complaint">
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <path
+                    d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"
+                  />
+                  <line x1="12" y1="9" x2="12" y2="13" />
+                  <line x1="12" y1="17" x2="12.01" y2="17" />
+                </svg>
+                <span class="sidebar-link-text">Report Issue</span>
+              </button>
+
+              <div class="sidebar-section-label">Account</div>
+
+              <button class="sidebar-link" data-tab="profile">
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                  <circle cx="12" cy="7" r="4" />
+                </svg>
+                <span class="sidebar-link-text">My Profile</span>
+              </button>
+            </nav>
+
+            <div class="sidebar-footer">
+              <button class="sidebar-link logout-link" id="logoutBtn">
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                  <polyline points="16 17 21 12 16 7" />
+                  <line x1="21" y1="12" x2="9" y2="12" />
+                </svg>
+                <span class="sidebar-link-text">Logout</span>
               </button>
             </div>
-          </div>
+          </aside>
 
-          <!-- Bus -->
-          <div class="tab-content" id="tab-bus">
-            <div class="page-header">
-              <div>
-                <h1>Bus Service</h1>
-                <p class="subtitle">Manage your bus assignment</p>
-              </div>
-            </div>
-            <div id="busContent">
-              <div style="text-align: center; padding: 40px">
-                <div class="spinner"></div>
-              </div>
-            </div>
-          </div>
+          <!-- Sidebar Overlay (mobile) -->
+          <div class="sidebar-overlay" id="sidebarOverlay"></div>
 
-          <!-- Tracking -->
-          <div class="tab-content" id="tab-tracking">
-            <div class="page-header">
-              <div>
-                <h1>Live Tracking</h1>
-                <p class="subtitle">Track your bus in real-time</p>
+          <!-- Content Area -->
+          <div class="content-area">
+            <!-- Home -->
+            <div class="tab-content active" id="tab-home">
+              <div class="home-greeting">
+                <div class="home-greeting-name" id="greetingName">Hello 👋</div>
+                <div class="home-greeting-sub" id="greetingDate"></div>
               </div>
-              <button class="btn btn-secondary btn-sm" id="refreshTrackingBtn">
-                Refresh
-              </button>
-            </div>
-            <div id="trackingContent">
-              <div style="text-align: center; padding: 40px">
-                <div class="spinner"></div>
+              <div id="tripBanner" class="hidden"></div>
+              <div class="status-card" id="homeStatusCard">
+                <div style="text-align: center; padding: 20px">
+                  <div class="spinner"></div>
+                  <p style="color: var(--text-muted); font-size: 14px">
+                    Loading...
+                  </p>
+                </div>
               </div>
-            </div>
-          </div>
-
-          <!-- Notifications -->
-          <div class="tab-content" id="tab-notifications">
-            <div class="page-header">
-              <div>
-                <h1>Notifications</h1>
-                <p class="subtitle">Your recent updates</p>
-              </div>
-            </div>
-            <div id="notificationsContent">
-              <div style="text-align: center; padding: 40px">
-                <div class="spinner"></div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Complaint -->
-          <div class="tab-content" id="tab-complaint">
-            <div class="page-header">
-              <div>
-                <h1>Report Issue</h1>
-                <p class="subtitle">Submit a complaint or feedback</p>
-              </div>
-            </div>
-            <div id="complaintContent"></div>
-          </div>
-
-          <!-- Profile -->
-          <div class="tab-content" id="tab-profile">
-            <div class="page-header">
-              <div>
-                <h1>My Profile</h1>
-                <p class="subtitle">Manage your account</p>
-              </div>
-            </div>
-
-            <!-- Profile Header -->
-            <div class="profile-header-card" id="profileHeader">
-              <div class="profile-avatar-lg" id="profileAvatar">S</div>
-              <div class="profile-name" id="profileName">Loading...</div>
-              <div class="profile-roll" id="profileRoll"></div>
-              <span
-                class="status-pill"
-                id="profileStatus"
-                style="margin-top: 8px; display: inline-block"
-              ></span>
-            </div>
-
-            <!-- Personal Info -->
-            <div class="profile-section-card" id="personalInfoCard">
-              <div class="profile-section-header">
-                <h3>Personal Information</h3>
-                <button class="btn btn-secondary btn-sm" id="editPersonalBtn">
-                  Edit
+              <div class="quick-actions">
+                <button
+                  class="quick-action-card"
+                  onclick="App.switchTab('bus')"
+                >
+                  <div class="quick-action-icon">🚌</div>
+                  <div class="quick-action-label">Bus Service</div>
+                </button>
+                <button
+                  class="quick-action-card"
+                  onclick="App.switchTab('tracking')"
+                >
+                  <div class="quick-action-icon">📍</div>
+                  <div class="quick-action-label">Live Track</div>
+                </button>
+                <button
+                  class="quick-action-card"
+                  onclick="App.switchTab('notifications')"
+                >
+                  <div class="quick-action-icon">🔔</div>
+                  <div class="quick-action-label">Notifications</div>
+                </button>
+                <button
+                  class="quick-action-card"
+                  onclick="App.switchTab('complaint')"
+                >
+                  <div class="quick-action-icon">⚠️</div>
+                  <div class="quick-action-label">Report Issue</div>
                 </button>
               </div>
-              <div id="personalInfoView"></div>
-              <div id="personalInfoEdit" class="hidden"></div>
             </div>
 
-            <!-- Bus Assignment -->
-            <div class="profile-section-card" id="busAssignmentCard">
-              <div class="profile-section-header">
-                <h3>Bus Assignment</h3>
+            <!-- Bus -->
+            <div class="tab-content" id="tab-bus">
+              <div class="page-header">
+                <div>
+                  <h1>Bus Service</h1>
+                  <p class="subtitle">Manage your bus assignment</p>
+                </div>
               </div>
-              <div id="busAssignmentInfo"></div>
+              <div id="busContent">
+                <div style="text-align: center; padding: 40px">
+                  <div class="spinner"></div>
+                </div>
+              </div>
             </div>
 
-            <!-- Change Password -->
-            <div class="profile-section-card">
-              <div class="profile-section-header">
-                <h3>Change Password</h3>
+            <!-- Tracking -->
+            <div class="tab-content" id="tab-tracking">
+              <div class="page-header">
+                <div>
+                  <h1>Live Tracking</h1>
+                  <p class="subtitle">Track your bus in real-time</p>
+                </div>
+                <button
+                  class="btn btn-secondary btn-sm"
+                  id="refreshTrackingBtn"
+                >
+                  Refresh
+                </button>
               </div>
-              <div id="passwordSection">
-                <div class="form-group">
-                  <label>Current Password</label>
-                  <input
-                    type="password"
-                    id="currentPassword"
-                    class="form-input no-icon"
-                    placeholder="Enter current password"
-                  />
+              <div id="trackingContent">
+                <div style="text-align: center; padding: 40px">
+                  <div class="spinner"></div>
                 </div>
-                <div class="form-group">
-                  <label>New Password</label>
-                  <input
-                    type="password"
-                    id="newPassword"
-                    class="form-input no-icon"
-                    placeholder="Min 6 characters"
-                  />
+              </div>
+            </div>
+
+            <!-- Notifications -->
+            <div class="tab-content" id="tab-notifications">
+              <div class="page-header">
+                <div>
+                  <h1>Notifications</h1>
+                  <p class="subtitle">Your recent updates</p>
                 </div>
-                <div class="form-group">
-                  <label>Confirm New Password</label>
-                  <input
-                    type="password"
-                    id="confirmPassword"
-                    class="form-input no-icon"
-                    placeholder="Confirm new password"
-                  />
+              </div>
+              <div id="notificationsContent">
+                <div style="text-align: center; padding: 40px">
+                  <div class="spinner"></div>
                 </div>
-                <div id="passwordError" class="form-error"></div>
-                <div
-                  id="passwordSuccess"
-                  class="hidden"
+              </div>
+            </div>
+
+            <!-- Complaint -->
+            <div class="tab-content" id="tab-complaint">
+              <div class="page-header">
+                <div>
+                  <h1>Report Issue</h1>
+                  <p class="subtitle">Submit a complaint or feedback</p>
+                </div>
+              </div>
+              <div id="complaintContent"></div>
+            </div>
+
+            <!-- Profile (keep your existing profile content) -->
+            <div class="tab-content" id="tab-profile">
+              <div class="page-header">
+                <div>
+                  <h1>My Profile</h1>
+                  <p class="subtitle">Manage your account</p>
+                </div>
+              </div>
+
+              <div class="profile-header-card" id="profileHeader">
+                <div class="profile-avatar-lg" id="profileAvatar">S</div>
+                <div class="profile-name" id="profileName">Loading...</div>
+                <div class="profile-roll" id="profileRoll"></div>
+                <span
+                  class="status-pill"
+                  id="profileStatus"
+                  style="margin-top: 8px; display: inline-block"
+                ></span>
+              </div>
+
+              <div class="profile-section-card" id="personalInfoCard">
+                <div class="profile-section-header">
+                  <h3>Personal Information</h3>
+                  <button class="btn btn-secondary btn-sm" id="editPersonalBtn">
+                    Edit
+                  </button>
+                </div>
+                <div id="personalInfoView"></div>
+                <div id="personalInfoEdit" class="hidden"></div>
+              </div>
+
+              <div class="profile-section-card" id="busAssignmentCard">
+                <div class="profile-section-header">
+                  <h3>Bus Assignment</h3>
+                </div>
+                <div id="busAssignmentInfo"></div>
+              </div>
+
+              <div class="profile-section-card">
+                <div class="profile-section-header">
+                  <h3>Change Password</h3>
+                </div>
+                <div id="passwordSection">
+                  <div class="form-group">
+                    <label>Current Password</label>
+                    <input
+                      type="password"
+                      id="currentPassword"
+                      class="form-input no-icon"
+                      placeholder="Enter current password"
+                    />
+                  </div>
+                  <div class="form-group">
+                    <label>New Password</label>
+                    <input
+                      type="password"
+                      id="newPassword"
+                      class="form-input no-icon"
+                      placeholder="Min 6 characters"
+                    />
+                  </div>
+                  <div class="form-group">
+                    <label>Confirm New Password</label>
+                    <input
+                      type="password"
+                      id="confirmPassword"
+                      class="form-input no-icon"
+                      placeholder="Confirm new password"
+                    />
+                  </div>
+                  <div id="passwordError" class="form-error"></div>
+                  <div
+                    id="passwordSuccess"
+                    class="hidden"
+                    style="
+                      padding: 10px 14px;
+                      background: var(--success-light);
+                      border: 1px solid rgba(16, 185, 129, 0.3);
+                      border-radius: 8px;
+                      font-size: 14px;
+                      color: var(--success);
+                      margin-bottom: 12px;
+                    "
+                  ></div>
+                  <button class="btn btn-primary" id="changePasswordBtn">
+                    <span id="changePasswordText">Update Password</span>
+                  </button>
+                </div>
+              </div>
+
+              <div class="profile-section-card danger-zone">
+                <div class="profile-section-header">
+                  <h3 style="color: var(--error)">Danger Zone</h3>
+                </div>
+                <p
                   style="
-                    padding: 10px 14px;
-                    background: var(--success-light);
-                    border: 1px solid rgba(16, 185, 129, 0.3);
-                    border-radius: 8px;
                     font-size: 14px;
-                    color: var(--success);
-                    margin-bottom: 12px;
+                    color: var(--text-muted);
+                    margin-bottom: 14px;
+                    padding: 0 18px;
                   "
-                ></div>
-                <button class="btn btn-primary" id="changePasswordBtn">
-                  <span id="changePasswordText">Update Password</span>
+                >
+                  Leaving bus service will remove your assignment. You can
+                  re-apply later.
+                </p>
+                <button class="btn btn-danger" id="profileLeaveBusBtn">
+                  Leave Bus Service
                 </button>
               </div>
             </div>
-
-            <!-- Danger Zone -->
-            <div class="profile-section-card danger-zone">
-              <div class="profile-section-header">
-                <h3 style="color: var(--error)">Danger Zone</h3>
-              </div>
-              <p
-                style="
-                  font-size: 14px;
-                  color: var(--text-muted);
-                  margin-bottom: 14px;
-                "
-              >
-                Leaving bus service will remove your assignment. You can
-                re-apply later.
-              </p>
-              <button class="btn btn-danger" id="profileLeaveBusBtn">
-                Leave Bus Service
-              </button>
-            </div>
-
-            <!-- Logout -->
-            <button
-              class="btn btn-outline"
-              id="profileLogoutBtn"
-              style="
-                margin-top: 8px;
-                border-color: var(--error);
-                color: var(--error);
-              "
-            >
-              Sign Out
-            </button>
           </div>
         </div>
       </div>
