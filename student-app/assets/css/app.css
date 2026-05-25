@@ -545,13 +545,13 @@ body {
 .btn-logout {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 8px 14px;
+  gap: 8px;
+  padding: 8px 16px;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 8px;
   color: var(--text);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 500;
   font-family: inherit;
   cursor: pointer;
@@ -1676,28 +1676,5 @@ body {
   }
   .tab-content {
     padding: 16px;
-  }
-} /* Show bottom nav on mobile, hide top nav links */
-@media (max-width: 768px) {
-  .mobile-bottom-nav {
-    display: flex;
-  }
-
-  /* Add bottom padding to content so it doesn't hide behind nav */
-  .main-content {
-    padding-bottom: 80px;
-  }
-
-  /* Profile button still visible in top nav for mobile */
-  .nav-links {
-    display: none;
-  }
-
-  .btn-logout span {
-    display: none;
-  }
-
-  .btn-logout {
-    padding: 8px;
   }
 }
