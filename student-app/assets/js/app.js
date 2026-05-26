@@ -2,15 +2,12 @@
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker
     .register("/student-app/service-worker.js")
-    .then((reg) => {
-      console.log("[SW] Registered:", reg.scope);
-    })
-    .catch((err) => {
-      console.error("[SW] Registration failed:", err.message);
-    });
+    .then((reg) => console.log("[SW] Registered:", reg.scope))
+    .catch((err) => console.error("[SW] Failed:", err.message));
 }
+
 /**
- * App Core - Top Nav Layout
+ * App Core - Sidebar Layout
  */
 const App = (() => {
   let currentTab = "home";
@@ -18,7 +15,6 @@ const App = (() => {
 
   function init() {
     const token = sessionStorage.getItem("student_token");
-
     if (token && !isTokenExpired(token)) {
       showScreen("main");
     } else {
@@ -73,7 +69,7 @@ const App = (() => {
       });
     }
 
-    // Sidebar collapse
+    // Sidebar collapse (desktop)
     const collapseBtn = document.getElementById("sidebarCollapse");
     if (collapseBtn) {
       collapseBtn.addEventListener("click", () => {
@@ -85,7 +81,7 @@ const App = (() => {
         );
       });
 
-      // Restore state
+      // Restore collapsed state
       if (localStorage.getItem("student_sidebar_collapsed") === "true") {
         document.getElementById("sidebar").classList.add("collapsed");
       }
@@ -94,12 +90,14 @@ const App = (() => {
     // Mobile menu toggle
     const menuToggle = document.getElementById("menuToggle");
     const overlay = document.getElementById("sidebarOverlay");
+
     if (menuToggle) {
       menuToggle.addEventListener("click", () => {
         document.getElementById("sidebar").classList.add("open");
-        overlay.classList.add("show");
+        if (overlay) overlay.classList.add("show");
       });
     }
+
     if (overlay) {
       overlay.addEventListener("click", () => {
         document.getElementById("sidebar").classList.remove("open");
@@ -112,8 +110,14 @@ const App = (() => {
       link.addEventListener("click", () => switchTab(link.dataset.tab));
     });
 
-    // Logout
-    document.getElementById("logoutBtn").addEventListener("click", logout);
+    // Logout button
+    const logoutBtn = document.getElementById("logoutBtn");
+    if (logoutBtn) {
+      logoutBtn.addEventListener("click", (e) => {
+        e.preventDefault();
+        logout();
+      });
+    }
 
     // Load profile
     try {
@@ -128,10 +132,12 @@ const App = (() => {
       setHeaderInfo(stored);
     }
 
+    // Initialize screens
     Tracking.init();
     Notifications.init();
     Complaint.init();
 
+    // Push notifications
     try {
       await Push.init();
     } catch (err) {
@@ -151,8 +157,8 @@ const App = (() => {
     if (name && profile?.full_name) {
       name.textContent = profile.full_name;
     }
-    if (roll && profile?.roll) {
-      roll.textContent = `Roll: ${profile.roll}`;
+    if (roll) {
+      roll.textContent = profile?.roll ? `Roll: ${profile.roll}` : "Student";
     }
     if (greetingName && profile?.full_name) {
       greetingName.textContent = `Hello, ${profile.full_name.split(" ")[0]} 👋`;
@@ -173,10 +179,12 @@ const App = (() => {
     });
 
     // Close mobile sidebar
-    document.getElementById("sidebar").classList.remove("open");
-    document.getElementById("sidebarOverlay").classList.remove("show");
+    const sidebar = document.getElementById("sidebar");
+    const overlay = document.getElementById("sidebarOverlay");
+    if (sidebar) sidebar.classList.remove("open");
+    if (overlay) overlay.classList.remove("show");
 
-    // Refresh data
+    // Refresh data based on tab
     switch (tab) {
       case "home":
         if (studentProfile) Home.render(studentProfile);
@@ -202,6 +210,8 @@ const App = (() => {
   function logout() {
     sessionStorage.removeItem("student_token");
     sessionStorage.removeItem("student_info");
+    sessionStorage.removeItem("current_screen");
+    localStorage.removeItem("student_sidebar_collapsed");
     showScreen("welcome");
   }
 
@@ -210,11 +220,10 @@ const App = (() => {
       const parts = token.split(".");
       if (parts.length !== 3) return true;
       const payload = JSON.parse(atob(parts[1]));
-      if (!payload.exp) return false; // No expiry = never expires
+      if (!payload.exp) return false;
       return payload.exp * 1000 < Date.now();
-    } catch (err) {
-      console.warn("Token check error:", err.message);
-      return false; // Don't logout on parse error, let backend validate
+    } catch {
+      return false;
     }
   }
 
