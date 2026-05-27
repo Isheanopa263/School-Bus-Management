@@ -28,8 +28,6 @@ const App = (() => {
 
   function showScreen(name) {
     const app = document.getElementById("app");
-
-    // Get template
     const templateId = `tpl-${name}`;
     const template = document.getElementById(templateId);
     if (!template) {
@@ -37,16 +35,20 @@ const App = (() => {
       return;
     }
 
-    // Render screen
+    sessionStorage.setItem("current_screen", name);
     app.innerHTML = "";
     app.appendChild(template.content.cloneNode(true));
 
-    // Initialize screen controller
     if (name === "login") LoginScreen.init();
     if (name === "route") {
       RouteView.init();
       DriverPush.init();
     }
+
+    // Setup theme toggle after screen renders
+    setTimeout(() => {
+      if (window.setupThemeToggle) setupThemeToggle();
+    }, 100);
   }
 
   function logout() {

@@ -1,12 +1,8 @@
-/* ══════════════════════════════════════════════════════════════════════════════
-   STUDENT APP - Dark Theme (Emerald Green Accent)
-   Top Nav layout matching driver app style
-   ══════════════════════════════════════════════════════════════════════════════ */
-
 @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
 
-/* ── Variables ────────────────────────────────────────────────────────────── */
-:root {
+/* ── Variables (Dark Theme Default) ────────────────────────────────────────── */
+:root,
+:root[data-theme="dark"] {
   --bg: #0a1628;
   --bg-secondary: #0f1e35;
   --surface: #1a2d40;
@@ -28,6 +24,34 @@
   --font: "Inter", -apple-system, system-ui, sans-serif;
 }
 
+/* ── Light Theme ───────────────────────────────────────────────────────────── */
+:root[data-theme="light"] {
+  --bg: #ffffff;
+  --bg-secondary: #f8fafc;
+  --surface: #ffffff;
+  --surface-light: #f1f5f9;
+  --primary: #10b981;
+  --primary-dark: #059669;
+  --primary-glow: rgba(16, 185, 129, 0.1);
+  --success: #10b981;
+  --success-light: rgba(16, 185, 129, 0.1);
+  --warning: #f59e0b;
+  --warning-light: rgba(245, 158, 11, 0.1);
+  --error: #ef4444;
+  --error-light: rgba(239, 68, 68, 0.1);
+  --info: #0ea5e9;
+  --info-light: rgba(14, 165, 233, 0.1);
+  --text: #0f172a;
+  --text-muted: #64748b;
+  --border: #e2e8f0;
+}
+
+* {
+  transition:
+    background-color 0.2s,
+    color 0.2s,
+    border-color 0.2s;
+}
 /* ── Reset ────────────────────────────────────────────────────────────────── */
 *,
 *::before,
@@ -1677,4 +1701,18 @@ body {
   .tab-content {
     padding: 16px;
   }
+}
+/* Theme Toggle Button */
+.theme-toggle-btn {
+  cursor: pointer;
+  font-family: inherit;
+  background: none;
+  border: none;
+  width: 100%;
+  text-align: left;
+}
+
+.theme-toggle-btn:hover {
+  background: var(--surface-light);
+  color: var(--text);
 }

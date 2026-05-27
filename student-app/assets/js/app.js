@@ -47,6 +47,11 @@ const App = (() => {
         initMain();
         break;
     }
+
+    // Setup theme toggle after any screen
+    setTimeout(() => {
+      if (window.setupThemeToggle) setupThemeToggle();
+    }, 100);
   }
 
   function initWelcome() {
@@ -142,6 +147,11 @@ const App = (() => {
       await Push.init();
     } catch (err) {
       console.warn("Push init failed:", err.message);
+    }
+
+    // Setup theme toggle
+    if (window.setupThemeToggle) {
+      setupThemeToggle();
     }
   }
 
