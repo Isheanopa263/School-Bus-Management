@@ -26,7 +26,7 @@ function handleExport(res, rows, filename, format) {
     }
   }
 
-  // PDF Export - optional, add if needed
+  // PDF Export
   if (format === "pdf") {
     const doc = new PDFDocument();
     res.setHeader("Content-Type", "application/pdf");
@@ -49,14 +49,14 @@ function handleExport(res, rows, filename, format) {
     return;
   }
 
-  // Default: JSON response
+  // ✅ FIXED: Use "report" key to match frontend expectation
   if (!rows || rows.length === 0) {
     return res.json({
-      data: [],
+      report: [],
       message: "No data available for the selected period",
     });
   }
-  return res.json({ data: rows });
+  return res.json({ report: rows });
 }
 
 // TRIPS

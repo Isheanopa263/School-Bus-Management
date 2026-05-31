@@ -39,7 +39,6 @@
   }
 
   function setupEvents() {
-    // Tab switching
     document.querySelectorAll(".report-tab").forEach((tab) => {
       tab.addEventListener("click", () => switchTab(tab.dataset.tab));
     });
@@ -52,17 +51,14 @@
   function switchTab(tab) {
     currentTab = tab;
 
-    // Update tab buttons
     document.querySelectorAll(".report-tab").forEach((t) => {
       t.classList.toggle("active", t.dataset.tab === tab);
     });
 
-    // Show correct section
     document.querySelectorAll(".report-section").forEach((s) => {
       s.classList.toggle("active", s.id === `section-${tab}`);
     });
 
-    // Show period filter only for driver-hours
     el("periodGroup").style.display = tab === "driver-hours" ? "block" : "none";
 
     loadReport();
@@ -89,6 +85,7 @@
   }
 
   // ── Export ────────────────────────────────────────────────────────────
+  // ✅ FIXED: removed duplicate /api in URL
   function exportReport(format) {
     const from = el("fromDate").value;
     const to = el("toDate").value;
@@ -100,7 +97,7 @@
 
     const token = sessionStorage.getItem("admin_token");
     window.open(
-      `${API_BASE}/api/reports/${currentTab}?${params}&token=${token}`,
+      `${API_BASE}/reports/${currentTab}?${params}&token=${token}`,
       "_blank",
     );
   }
@@ -181,7 +178,6 @@
   // ── Renderers ─────────────────────────────────────────────────────────
 
   function renderTrips(data) {
-    // Stats
     const total = data.length;
     const completed = data.filter((t) => t.status === "completed").length;
     const ongoing = data.filter((t) => t.status === "ongoing").length;
@@ -198,7 +194,6 @@
       <div class="report-stat warning"><div class="report-stat-value">${ongoing}</div><div class="report-stat-label">Ongoing</div></div>
       <div class="report-stat error"><div class="report-stat-value">${avgDelay}</div><div class="report-stat-label">Avg Delay (min)</div></div>`;
 
-    // Chart
     const statusMap = {};
     data.forEach((t) => (statusMap[t.status] = (statusMap[t.status] || 0) + 1));
     makeBarChart("tripsChart", "trips", Object.keys(statusMap), [
@@ -209,7 +204,6 @@
       },
     ]);
 
-    // Table
     el("tripsCount").textContent = `${total} records`;
     if (!data.length) return showEmpty("tripsBody", 7);
     el("tripsBody").innerHTML = data
@@ -268,12 +262,12 @@
     makeBarChart("driverHoursChart", "driverHours", uniqueDrivers, [
       {
         label: "Total Hours",
-        data: uniqueDrivers.map((name) => {
-          return data
+        data: uniqueDrivers.map((name) =>
+          data
             .filter((d) => d.driver_name === name)
             .reduce((s, d) => s + parseFloat(d.total_hours || 0), 0)
-            .toFixed(1);
-        }),
+            .toFixed(1),
+        ),
         backgroundColor: "#10b981",
       },
     ]);
