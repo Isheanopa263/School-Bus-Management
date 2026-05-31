@@ -2,7 +2,8 @@
  * Reports & Analytics Page Controller
  */
 (function () {
-  const API_BASE = "http://localhost:3000";
+  const API_BASE =
+    "https://school-bus-management-production.up.railway.app/api";
   let currentTab = "trips";
   let charts = {};
 
