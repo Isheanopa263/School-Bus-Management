@@ -3,14 +3,29 @@
  */
 const Bus = (() => {
   let requestMap = null;
+  let marker = null; // FIX: Hoisted to module scope to prevent leaks
   let selectedLat = null;
   let selectedLng = null;
+
+  // FIX: Added destroy method for cleanup on unmount
+  function destroy() {
+    if (marker && requestMap) {
+      requestMap.removeLayer(marker);
+      marker = null;
+    }
+    if (requestMap) {
+      requestMap.remove();
+      requestMap = null;
+    }
+    selectedLat = null;
+    selectedLng = null;
+  }
 
   function render(profile) {
     const container = document.getElementById("busContent");
     if (!container) return;
 
-    const status = profile.bus_request_status;
+    const status = profile?.bus_request_status;
 
     if (status === "approved" && profile.stop_name) {
       renderApproved(container, profile);
@@ -47,7 +62,7 @@ const Bus = (() => {
             </div>
           </div>
           <div class="bus-detail-row">
-            <div class="bus-detail-row-icon">🗺️</div>
+            <div class="bus-detail-row-icon">🗺</div>
             <div>
               <div class="bus-detail-row-label">Route</div>
               <div class="bus-detail-row-value">${profile.route_name || "N/A"}</div>
@@ -86,9 +101,12 @@ const Bus = (() => {
         </button>
       </div>`;
 
-    document.getElementById("changeStopBtn").onclick = () =>
-      renderRequest(container, true);
-    document.getElementById("leaveBusBtn").onclick = handleLeaveBus;
+    // FIX: Added null guards
+    const changeBtn = document.getElementById("changeStopBtn");
+    if (changeBtn) changeBtn.onclick = () => renderRequest(container, true);
+
+    const leaveBtn = document.getElementById("leaveBusBtn");
+    if (leaveBtn) leaveBtn.onclick = handleLeaveBus;
   }
 
   // ── Pending State ─────────────────────────────────────────────────────
@@ -118,14 +136,15 @@ const Bus = (() => {
         <button class="btn btn-primary" id="reapplyBtn">Apply Again</button>
       </div>`;
 
-    document.getElementById("reapplyBtn").onclick = () =>
-      renderRequest(container);
+    const reapplyBtn = document.getElementById("reapplyBtn");
+    if (reapplyBtn) reapplyBtn.onclick = () => renderRequest(container);
   }
 
   // ── Request Form ──────────────────────────────────────────────────────
   function renderRequest(container, isChange = false) {
-    selectedLat = null;
-    selectedLng = null;
+    // FIX: Clean up existing map before rendering new one
+    destroy();
+
     container.innerHTML = `
     <div class="card">
       <h3 class="section-title">${isChange ? "Change My Stop" : "Request Bus Service"}</h3>
@@ -163,41 +182,46 @@ const Bus = (() => {
 
     // Cancel button
     if (isChange) {
-      document.getElementById("cancelChangeBtn").onclick = async () => {
-        const data = await StudentAPI.getProfile();
-        render(data.profile);
-      };
+      const cancelBtn = document.getElementById("cancelChangeBtn");
+      if (cancelBtn) {
+        cancelBtn.onclick = async () => {
+          container.innerHTML = `<div class="loading">Loading...</div>`;
+          try {
+            const data = await StudentAPI.getProfile();
+            render(data.profile);
+          } catch (err) {
+            container.innerHTML = `<div class="form-error visible">Failed to load profile</div>`;
+          }
+        };
+      }
     }
 
-    document.getElementById("submitRequestBtn").onclick = () => {
-      handleSubmitRequest(isChange);
-    };
+    // FIX: Only one event listener now, removed the addEventListener below
+    const submitBtn = document.getElementById("submitRequestBtn");
+    if (submitBtn) submitBtn.onclick = () => handleSubmitRequest(isChange);
 
     initRequestMap();
-
-    // Set isChange flag for submit handler
-    document
-      .getElementById("submitRequestBtn")
-      .addEventListener("click", () => {
-        handleSubmitRequest(isChange);
-      });
   }
 
   function initRequestMap() {
     const mapEl = document.getElementById("requestMap");
     if (!mapEl) return;
 
+    // FIX: Cleanup handled by destroy() now, but keep as safety
     if (requestMap) {
       requestMap.remove();
       requestMap = null;
     }
+    if (marker) marker = null;
 
     requestMap = L.map("requestMap").setView([17.05, 82.15], 12);
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(
-      requestMap,
-    );
+    // FIX: Added attribution + maxZoom for OSM compliance
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      attribution:
+        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+      maxZoom: 19,
+    }).addTo(requestMap);
 
-    let marker = null;
     requestMap.on("click", (e) => {
       selectedLat = e.latlng.lat;
       selectedLng = e.latlng.lng;
@@ -205,34 +229,50 @@ const Bus = (() => {
       if (marker) requestMap.removeLayer(marker);
       marker = L.marker([selectedLat, selectedLng]).addTo(requestMap);
 
-      document.getElementById("selectedLocationText").textContent =
-        `${selectedLat.toFixed(5)}, ${selectedLng.toFixed(5)}`;
-      document.getElementById("selectedLocationText").style.color =
-        "var(--text)";
+      const locText = document.getElementById("selectedLocationText");
+      if (locText) {
+        locText.textContent = `${selectedLat.toFixed(5)}, ${selectedLng.toFixed(5)}`;
+        locText.style.color = "var(--text)";
+      }
     });
 
     // Try to get user's current location
     if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition((pos) => {
-        requestMap.setView([pos.coords.latitude, pos.coords.longitude], 14);
-      });
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          if (requestMap) {
+            requestMap.setView([pos.coords.latitude, pos.coords.longitude], 14);
+          }
+        },
+        () => {}, // Silently fail if user denies location
+      );
     }
   }
 
   async function handleSubmitRequest(isChange = false) {
-    if (!selectedLat || !selectedLng) {
-      const errEl = document.getElementById("requestError");
-      errEl.textContent = "Please select your location on the map";
-      errEl.classList.add("visible");
-      return;
-    }
-
-    const notes = document.getElementById("requestNotes").value.trim();
+    const errEl = document.getElementById("requestError");
     const btn = document.getElementById("submitRequestBtn");
     const btnText = document.getElementById("submitRequestText");
 
-    btn.disabled = true;
-    btnText.textContent = isChange ? "Processing..." : "Submitting request...";
+    // FIX: Disable immediately to prevent race condition
+    if (btn) btn.disabled = true;
+
+    if (!selectedLat || !selectedLng) {
+      if (errEl) {
+        errEl.textContent = "Please select your location on the map";
+        errEl.classList.add("visible");
+      }
+      if (btn) btn.disabled = false;
+      return;
+    }
+
+    const notesEl = document.getElementById("requestNotes");
+    const notes = notesEl ? notesEl.value.trim() : "";
+
+    if (btnText)
+      btnText.textContent = isChange
+        ? "Processing..."
+        : "Submitting request...";
 
     try {
       // If changing stop, leave bus first then re-request
@@ -244,31 +284,35 @@ const Bus = (() => {
       await StudentAPI.requestBus(homeLocation, notes || null);
 
       const container = document.getElementById("busContent");
-      container.innerHTML = `
-      <div class="bus-state-card" style="background:var(--success-light);border:1px solid rgba(16,185,129,0.3)">
-        <div class="bus-state-icon">✅</div>
-        <div class="bus-state-title">${isChange ? "Change Request Submitted!" : "Request Submitted!"}</div>
-        <div class="bus-state-desc">
-          ${
-            isChange
-              ? "Your stop change request has been submitted. Admin will review and assign you a new stop."
-              : "Your bus service request has been submitted. Admin will review and assign you shortly."
-          }
-        </div>
-        <span class="status-pill pending" style="display:inline-block">Pending Review</span>
-      </div>`;
+      if (container) {
+        container.innerHTML = `
+        <div class="bus-state-card" style="background:var(--success-light);border:1px solid rgba(16,185,129,0.3)">
+          <div class="bus-state-icon">✅</div>
+          <div class="bus-state-title">${isChange ? "Change Request Submitted!" : "Request Submitted!"}</div>
+          <div class="bus-state-desc">
+            ${
+              isChange
+                ? "Your stop change request has been submitted. Admin will review and assign you a new stop."
+                : "Your bus service request has been submitted. Admin will review and assign you shortly."
+            }
+          </div>
+          <span class="status-pill pending" style="display:inline-block">Pending Review</span>
+        </div>`;
+      }
     } catch (err) {
-      const errEl = document.getElementById("requestError");
+      // FIX: Better error handling with fallbacks
       if (errEl) {
-        errEl.textContent =
-          err.status === 409
-            ? "You already have a pending request"
-            : err.message || "Failed to submit request";
+        let msg = "Request failed. Try again.";
+        if (err.status === 409) msg = "You already have a pending request";
+        else if (err.status === 400) msg = "Invalid location selected";
+        else if (err.message) msg = err.message;
+
+        errEl.textContent = msg;
         errEl.classList.add("visible");
       }
-    } finally {
-      btn.disabled = false;
-      btnText.textContent = isChange ? "Change Stop" : "Request Bus";
+      if (btn) btn.disabled = false;
+      if (btnText)
+        btnText.textContent = isChange ? "Change Stop" : "Request Bus";
     }
   }
 
@@ -285,20 +329,25 @@ const Bus = (() => {
       await StudentAPI.leaveBus();
 
       const container = document.getElementById("busContent");
-      container.innerHTML = `
-      <div class="bus-state-card">
-        <div class="bus-state-icon">👋</div>
-        <div class="bus-state-title">Left Bus Service</div>
-        <div class="bus-state-desc">You have been removed from bus service. You can apply again anytime.</div>
-        <button class="btn btn-primary" id="reapplyAfterLeave" style="margin-top:12px">Apply Again</button>
-      </div>`;
+      if (container) {
+        container.innerHTML = `
+        <div class="bus-state-card">
+          <div class="bus-state-icon">👋</div>
+          <div class="bus-state-title">Left Bus Service</div>
+          <div class="bus-state-desc">You have been removed from bus service. You can apply again anytime.</div>
+          <button class="btn btn-primary" id="reapplyAfterLeave" style="margin-top:12px">Apply Again</button>
+        </div>`;
 
-      document.getElementById("reapplyAfterLeave").onclick = () => {
-        renderRequest(container);
-      };
+        const reapplyBtn = document.getElementById("reapplyAfterLeave");
+        if (reapplyBtn) {
+          reapplyBtn.onclick = () => renderRequest(container);
+        }
+      }
     } catch (err) {
       alert(err.message || "Failed to leave bus service");
     }
   }
-  return { render };
+
+  // FIX: Export destroy so parent can call it on route change/unmount
+  return { render, destroy };
 })();
