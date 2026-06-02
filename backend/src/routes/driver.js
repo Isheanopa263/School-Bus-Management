@@ -229,22 +229,18 @@ router.get(
       }));
 
       res.json({
-        assignment: {
-          assignment_id: assignment.assignment_id,
-          route_id: assignment.route_id,
-          route_name: assignment.route_name,
-          shift: assignment.shift,
-          total_distance_km: assignment.total_distance_km,
-          estimated_duration_min: assignment.estimated_duration_min,
-          bus_id: assignment.bus_id,
-          bus_number: assignment.bus_number,
-          bus_capacity: assignment.capacity,
-        },
-        stops: stopsWithStudents,
-        total_stops: stopsResult.rows.length,
-        total_students: studentsResult.rows.length,
-        active_trip: tripResult.rows[0] || null,
-      });
+  assignment: {
+    assignment_id: assignment.assignment_id,
+    route_id: assignment.route_id,
+    route_name: assignment.route_name,
+    shift: assignment.shift,
+    total_distance_km: assignment.total_distance_km,
+    estimated_duration_min: assignment.estimated_duration_min,
+    route_path: assignment.route_path,
+    bus_id: assignment.bus_id,
+    bus_number: assignment.bus_number,
+    bus_capacity: assignment.capacity,
+  },
     } catch (err) {
       console.error("Get today route error:", err);
       res.status(500).json({ error: "Failed to fetch today's route" });
