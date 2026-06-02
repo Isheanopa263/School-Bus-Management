@@ -7,13 +7,14 @@ const RouteView = (() => {
   let tripStartTime = null;
   let timerInterval = null;
   let routeStops = [];
+  let routeAssignment = null; // ← store full assignment object
   let currentTab = "dashboard";
   let mapInitialized = false;
+  let currentSOSType = null;
 
   // GPS → Navigation bridge
   function onGPSUpdate(pos) {
     Navigation.updateDriverPosition(pos.latitude, pos.longitude, pos.heading);
-    // Update trip detail GPS status
     const gpsEl = document.getElementById("trip-detail-gps");
     if (gpsEl) gpsEl.textContent = `Active (${pos.accuracy}m)`;
   }
@@ -22,7 +23,6 @@ const RouteView = (() => {
   async function init() {
     const driver = JSON.parse(sessionStorage.getItem("driver_info") || "{}");
 
-    // Set all driver name/bus displays
     setTextContent("sidebar-driver-name", driver.full_name || "Driver");
     setTextContent(
       "sidebar-bus-number",
@@ -34,12 +34,10 @@ const RouteView = (() => {
     if (avatar)
       avatar.textContent = (driver.full_name || "D").charAt(0).toUpperCase();
 
-    // Sidebar collapse
+    // Sidebar
     document
       .getElementById("sidebar-collapse")
       .addEventListener("click", toggleSidebar);
-
-    // Mobile menu
     document
       .getElementById("menu-toggle")
       .addEventListener("click", openMobileSidebar);
@@ -47,7 +45,7 @@ const RouteView = (() => {
       .getElementById("sidebar-overlay")
       .addEventListener("click", closeMobileSidebar);
 
-    // Tab navigation
+    // Tabs
     document.querySelectorAll(".sidebar-link[data-tab]").forEach((link) => {
       link.addEventListener("click", () => switchTab(link.dataset.tab));
     });
@@ -61,23 +59,19 @@ const RouteView = (() => {
       App.logout();
     });
 
-    // Trip buttons - Dashboard
+    // Trip buttons
     document
       .getElementById("start-trip-btn")
       .addEventListener("click", openStartModal);
     document
       .getElementById("end-trip-btn")
       .addEventListener("click", openEndModal);
-
-    // Trip buttons - Trip tab
     document
       .getElementById("start-trip-btn-alt")
       .addEventListener("click", openStartModal);
     document
       .getElementById("end-trip-btn-alt")
       .addEventListener("click", openEndModal);
-
-    // Start trip from completed state
     document
       .getElementById("start-trip-btn-completed")
       .addEventListener("click", openStartModal);
@@ -100,6 +94,7 @@ const RouteView = (() => {
     document
       .getElementById("confirm-end-btn")
       .addEventListener("click", handleEndTrip);
+
     // Backdrop close
     document
       .getElementById("start-trip-modal")
@@ -132,7 +127,7 @@ const RouteView = (() => {
         openSOSModal("harsh_braking", "⚠️", "Other Issue"),
       );
 
-    // SOS modal controls
+    // SOS modal
     document
       .getElementById("close-sos-modal")
       .addEventListener("click", closeSOSModal);
@@ -145,8 +140,6 @@ const RouteView = (() => {
     document.getElementById("sos-confirm-ok").addEventListener("click", () => {
       document.getElementById("sos-confirm-modal").classList.remove("show");
     });
-
-    // SOS modal backdrop
     document.getElementById("sos-modal").addEventListener("click", (e) => {
       if (e.target === e.currentTarget) closeSOSModal();
     });
@@ -166,7 +159,7 @@ const RouteView = (() => {
         btn.classList.add("active");
       });
     });
-    // Load route
+
     await loadTodayRoute();
   }
 
@@ -199,7 +192,7 @@ const RouteView = (() => {
 
     if (tab === "map" && !mapInitialized && routeStops.length > 0) {
       setTimeout(() => {
-        Navigation.initMap(routeStops);
+        Navigation.initMap(routeStops, routeAssignment);
         mapInitialized = true;
         if (activeTripId) Navigation.startNavigation();
       }, 100);
@@ -211,13 +204,49 @@ const RouteView = (() => {
       }, 100);
     }
 
-    // Load SOS history when tab opens
     if (tab === "sos") {
       loadSOSHistory();
     }
 
     closeMobileSidebar();
   }
+
+  // ── Helpers For Reversing Route (For Drop Trips) ──────────────────────
+  function reverseRouteData(stops) {
+    if (!stops || stops.length === 0) return stops;
+    return [...stops].reverse().map((stop, idx) => ({
+      ...stop,
+      sequence_number: idx + 1,
+      original_sequence: stop.sequence_number,
+    }));
+  }
+
+  function reverseWKT(wkt) {
+    if (!wkt) return wkt;
+    try {
+      const content = wkt.match(/\((.*)\)/)[1];
+      const points = content.split(",").map((p) => p.trim());
+      const reversed = points.reverse().join(", ");
+      return `LINESTRING(${reversed})`;
+    } catch {
+      return wkt;
+    }
+  }
+
+  function applyRouteDirection(tripType) {
+    // Reset to original first
+    routeStops = [...originalStops];
+    routeAssignment = { ...originalAssignment };
+
+    if (tripType === "drop") {
+      routeStops = reverseRouteData(originalStops);
+      routeAssignment.route_path = reverseWKT(originalAssignment.route_path);
+    }
+  }
+
+  // Store originals to allow direction switching
+  let originalStops = [];
+  let originalAssignment = null;
 
   // ── Load Route ────────────────────────────────────────────────────────
   async function loadTodayRoute() {
@@ -228,12 +257,28 @@ const RouteView = (() => {
 
     try {
       const data = await DriverAPI.getTodayRoute();
+
+      // Store originals
+      originalStops = data.stops;
+      originalAssignment = data.assignment;
+
+      // Default to pickup direction
       routeStops = data.stops;
+      routeAssignment = data.assignment;
+
+      // If there's an active drop trip, reverse the direction
+      if (
+        data.active_trip &&
+        data.active_trip.trip_type === "drop" &&
+        data.active_trip.status === "ongoing"
+      ) {
+        applyRouteDirection("drop");
+      }
+
       renderSummary(summaryEl, data);
-      renderStops(stopsEl, countEl, data.stops);
+      renderStops(stopsEl, countEl, routeStops);
       renderQuickStats(statsEl, data);
 
-      // Restore active trip state
       if (data.active_trip) {
         if (data.active_trip.status === "ongoing") {
           restoreActiveTrip(data.active_trip);
@@ -246,11 +291,7 @@ const RouteView = (() => {
         <div class="no-route">
           <div class="no-route-icon">📋</div>
           <h3>No Route Today</h3>
-          <p>${
-            err.status === 404
-              ? "You have no route assigned for today."
-              : "Failed to load route. Check your connection."
-          }</p>
+          <p>${err.status === 404 ? "You have no route assigned for today." : "Failed to load route."}</p>
         </div>`;
       stopsEl.innerHTML = "";
       countEl.textContent = "0";
@@ -378,17 +419,15 @@ const RouteView = (() => {
     const tripType =
       trip.trip_type.charAt(0).toUpperCase() + trip.trip_type.slice(1);
 
-    // Dashboard trip bar
     document.getElementById("trip-idle").classList.add("hidden");
+    document.getElementById("trip-completed").classList.add("hidden");
     document.getElementById("trip-active").classList.remove("hidden");
     document.getElementById("trip-type-label").textContent = tripType;
 
-    // Trip tab detail
     document.getElementById("trip-detail-idle").classList.add("hidden");
     document.getElementById("trip-detail-active").classList.remove("hidden");
     document.getElementById("trip-detail-type").textContent = tripType;
 
-    // Show LIVE badge on trip nav
     const badge = document.getElementById("trip-badge");
     if (badge) badge.classList.remove("hidden");
 
@@ -412,19 +451,16 @@ const RouteView = (() => {
     GPS.offPosition(onGPSUpdate);
     Navigation.stopNavigation();
 
-    // Dashboard trip bar
     document.getElementById("trip-active").classList.add("hidden");
+    document.getElementById("trip-completed").classList.add("hidden");
     document.getElementById("trip-idle").classList.remove("hidden");
 
-    // Trip tab detail
     document.getElementById("trip-detail-active").classList.add("hidden");
     document.getElementById("trip-detail-idle").classList.remove("hidden");
 
-    // Hide LIVE badge
     const badge = document.getElementById("trip-badge");
     if (badge) badge.classList.add("hidden");
 
-    // Re-enable start buttons
     document.getElementById("start-trip-btn").disabled = false;
     document.getElementById("start-trip-btn-alt").disabled = false;
 
@@ -485,19 +521,31 @@ const RouteView = (() => {
     document.getElementById("start-trip-btn-alt").disabled = true;
 
     try {
-      const data = await DriverAPI.startTrip(tripType);
-      setTripActive(data.trip);
-      GPS.start(data.trip.id);
+      const tripData = await DriverAPI.startTrip(tripType);
+
+      // Apply route direction based on trip type
+      applyRouteDirection(tripType);
+
+      // Re-render stops with correct order
+      renderStops(
+        document.getElementById("stops-list"),
+        document.getElementById("stops-count"),
+        routeStops,
+      );
+
+      setTripActive(tripData.trip);
+      GPS.start(tripData.trip.id);
       GPS.onPosition(onGPSUpdate);
 
-      // Init map if on map tab or hasn't been initialized
-      if (!mapInitialized && routeStops.length > 0) {
-        Navigation.initMap(routeStops);
+      // Init or re-init map with correct direction
+      if (mapInitialized) {
+        Navigation.initMap(routeStops, routeAssignment);
+      } else if (routeStops.length > 0) {
+        Navigation.initMap(routeStops, routeAssignment);
         mapInitialized = true;
       }
       Navigation.startNavigation();
 
-      // Switch to map tab
       switchTab("map");
     } catch (err) {
       const msg =
@@ -541,6 +589,37 @@ const RouteView = (() => {
     }
   }
 
+  function setTripCompleted(trip) {
+    activeTripId = null;
+    tripStartTime = null;
+    stopTimer();
+    GPS.stop();
+    GPS.offPosition(onGPSUpdate);
+
+    document.getElementById("trip-idle").classList.add("hidden");
+    document.getElementById("trip-active").classList.add("hidden");
+    document.getElementById("trip-completed").classList.remove("hidden");
+
+    document.getElementById("trip-detail-active").classList.add("hidden");
+    document.getElementById("trip-detail-idle").classList.remove("hidden");
+
+    document.getElementById("completed-trip-type").textContent = trip.trip_type
+      ? trip.trip_type.charAt(0).toUpperCase() + trip.trip_type.slice(1)
+      : "Trip";
+
+    document.getElementById("completed-trip-time").textContent = trip.end_time
+      ? new Date(trip.end_time).toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        })
+      : "Completed";
+
+    const badge = document.getElementById("trip-badge");
+    if (badge) badge.classList.add("hidden");
+
+    sessionStorage.removeItem("active_trip");
+  }
+
   // ── Helpers ───────────────────────────────────────────────────────────
   function toggleStop(stopId) {
     const card = document.getElementById(`stop-${stopId}`);
@@ -553,15 +632,12 @@ const RouteView = (() => {
   }
 
   // ── SOS Functions ─────────────────────────────────────────────────────
-  let currentSOSType = null;
-
   function openSOSModal(type, icon, name) {
     currentSOSType = type;
     document.getElementById("sos-type-icon").textContent = icon;
     document.getElementById("sos-type-name").textContent = name;
     document.getElementById("sos-description").value = "";
 
-    // Reset severity to high
     document
       .querySelectorAll(".severity-btn")
       .forEach((b) => b.classList.remove("active"));
@@ -569,7 +645,6 @@ const RouteView = (() => {
       .querySelector('.severity-btn[data-severity="high"]')
       .classList.add("active");
 
-    // Get current location
     const pos = GPS.getLastPosition();
     const locText = document.getElementById("sos-location-text");
     if (pos) {
@@ -609,17 +684,11 @@ const RouteView = (() => {
       );
 
       closeSOSModal();
-
-      // Show confirmation
       document.getElementById("sos-confirm-modal").classList.add("show");
-
-      // Reload SOS history
       loadSOSHistory();
     } catch (err) {
       const msg =
-        err.status === 0
-          ? "No internet connection. Please try again."
-          : "Failed to send alert. Please try again.";
+        err.status === 0 ? "No internet connection." : "Failed to send alert.";
       alert(msg);
     } finally {
       sendBtn.disabled = false;
@@ -650,52 +719,22 @@ const RouteView = (() => {
       container.innerHTML = data.events
         .map(
           (event) => `
-      <div class="sos-history-item">
-        <div class="sos-history-icon ${event.event_type}">
-          ${iconMap[event.event_type] || "⚠️"}
-        </div>
-        <div class="sos-history-info">
-          <div class="sos-history-type">
-            ${event.event_type.replace("_", " ")}
+        <div class="sos-history-item">
+          <div class="sos-history-icon ${event.event_type}">
+            ${iconMap[event.event_type] || "⚠️"}
           </div>
-          <div class="sos-history-time">
-            ${new Date(event.occurred_at).toLocaleString()}
+          <div class="sos-history-info">
+            <div class="sos-history-type">${event.event_type.replace("_", " ")}</div>
+            <div class="sos-history-time">${new Date(event.occurred_at).toLocaleString()}</div>
           </div>
+          <span class="sos-history-severity ${event.severity}">${event.severity}</span>
         </div>
-        <span class="sos-history-severity ${event.severity}">
-          ${event.severity}
-        </span>
-      </div>
-    `,
+      `,
         )
         .join("");
     } catch (err) {
       container.innerHTML = `<p class="text-muted">Failed to load history</p>`;
     }
-  }
-
-  function setTripCompleted(trip) {
-    activeTripId = null;
-    tripStartTime = null;
-    stopTimer();
-    GPS.stop();
-
-    document.getElementById("trip-idle").classList.add("hidden");
-    document.getElementById("trip-active").classList.add("hidden");
-    document.getElementById("trip-completed").classList.remove("hidden");
-
-    document.getElementById("completed-trip-type").textContent = trip.trip_type
-      ? trip.trip_type.charAt(0).toUpperCase() + trip.trip_type.slice(1)
-      : "Trip";
-
-    document.getElementById("completed-trip-time").textContent = trip.end_time
-      ? new Date(trip.end_time).toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit",
-        })
-      : "Completed";
-
-    sessionStorage.removeItem("active_trip");
   }
 
   return { init, toggleStop };
