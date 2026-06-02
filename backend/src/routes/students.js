@@ -157,4 +157,50 @@ router.put("/:id", requireAuth, requireRole(["admin"]), async (req, res) => {
   }
 });
 
+/**
+ * DELETE /api/students/:id - Admin only
+ * Soft deletes student (deactivates user account)
+ */
+router.delete("/:id", requireAuth, requireRole(["admin"]), async (req, res) => {
+  const { id } = req.params;
+  const client = await db.pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    // Get userid from sid
+    const studentResult = await client.query(
+      "SELECT userid FROM students WHERE sid = $1",
+      [id],
+    );
+
+    if (studentResult.rows.length === 0) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ error: "Student not found" });
+    }
+
+    const userid = studentResult.rows[0].userid;
+
+    // Delete bus requests
+    await client.query("DELETE FROM bus_requests WHERE student_id = $1", [id]);
+
+    // Delete student record (cascades to attendance via FK)
+    await client.query("DELETE FROM students WHERE sid = $1", [id]);
+
+    // Deactivate user account
+    await client.query("UPDATE users SET is_active = false WHERE userid = $1", [
+      userid,
+    ]);
+
+    await client.query("COMMIT");
+    res.json({ message: "Student deleted successfully" });
+  } catch (err) {
+    await client.query("ROLLBACK");
+    console.error("Delete student error:", err);
+    res.status(500).json({ error: "Failed to delete student" });
+  } finally {
+    client.release();
+  }
+});
+
 module.exports = router;

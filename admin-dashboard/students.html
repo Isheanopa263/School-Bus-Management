@@ -3,9 +3,9 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Student Requests - BusTrack Admin</title>
+    <title>Students - BusTrack Admin</title>
     <link rel="stylesheet" href="assets/css/base.css" />
-    <link rel="stylesheet" href="assets/css/requests.css" />
+    <link rel="stylesheet" href="assets/css/students.css" />
   </head>
   <body>
     <nav class="top-nav">
@@ -27,6 +27,7 @@
     </nav>
 
     <div class="app-layout">
+      <!-- Sidebar - same as other admin pages -->
       <aside class="sidebar" id="sidebar">
         <div class="sidebar-header">
           <div class="sidebar-brand">
@@ -60,14 +61,14 @@
             </svg>
           </button>
         </div>
+
         <nav class="sidebar-nav">
           <div class="sidebar-section-label">Main</div>
           <a
             href="dashboard.html"
             class="sidebar-link"
             data-page="dashboard.html"
-          >
-            <svg
+            ><svg
               width="20"
               height="20"
               viewBox="0 0 24 24"
@@ -78,16 +79,14 @@
               <rect x="3" y="3" width="7" height="7" />
               <rect x="14" y="3" width="7" height="7" />
               <rect x="3" y="14" width="7" height="7" />
-              <rect x="14" y="14" width="7" height="7" />
-            </svg>
-            <span class="sidebar-link-text">Dashboard</span>
-          </a>
+              <rect x="14" y="14" width="7" height="7" /></svg
+            ><span class="sidebar-link-text">Dashboard</span></a
+          >
           <a
             href="live-tracking.html"
             class="sidebar-link"
             data-page="live-tracking.html"
-          >
-            <svg
+            ><svg
               width="20"
               height="20"
               viewBox="0 0 24 24"
@@ -96,13 +95,12 @@
               stroke-width="2"
             >
               <circle cx="12" cy="12" r="10" />
-              <circle cx="12" cy="12" r="3" />
-            </svg>
-            <span class="sidebar-link-text">Live Tracking</span>
-          </a>
+              <circle cx="12" cy="12" r="3" /></svg
+            ><span class="sidebar-link-text">Live Tracking</span></a
+          >
           <div class="sidebar-section-label">Management</div>
-          <a href="buses.html" class="sidebar-link" data-page="buses.html">
-            <svg
+          <a href="buses.html" class="sidebar-link" data-page="buses.html"
+            ><svg
               width="20"
               height="20"
               viewBox="0 0 24 24"
@@ -111,12 +109,11 @@
               stroke-width="2"
             >
               <rect x="3" y="5" width="18" height="12" rx="2" />
-              <path d="M7 17v2M17 17v2" />
-            </svg>
-            <span class="sidebar-link-text">Buses</span>
-          </a>
-          <a href="drivers.html" class="sidebar-link" data-page="drivers.html">
-            <svg
+              <path d="M7 17v2M17 17v2" /></svg
+            ><span class="sidebar-link-text">Buses</span></a
+          >
+          <a href="drivers.html" class="sidebar-link" data-page="drivers.html"
+            ><svg
               width="20"
               height="20"
               viewBox="0 0 24 24"
@@ -125,16 +122,14 @@
               stroke-width="2"
             >
               <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-              <circle cx="12" cy="7" r="4" />
-            </svg>
-            <span class="sidebar-link-text">Drivers</span>
-          </a>
+              <circle cx="12" cy="7" r="4" /></svg
+            ><span class="sidebar-link-text">Drivers</span></a
+          >
           <a
             href="students.html"
-            class="sidebar-link"
+            class="sidebar-link active"
             data-page="students.html"
-          >
-            <svg
+            ><svg
               width="20"
               height="20"
               viewBox="0 0 24 24"
@@ -145,12 +140,11 @@
               <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
               <circle cx="9" cy="7" r="4" />
               <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-              <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-            </svg>
-            <span class="sidebar-link-text">Students</span>
-          </a>
-          <a href="routes.html" class="sidebar-link" data-page="routes.html">
-            <svg
+              <path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg
+            ><span class="sidebar-link-text">Students</span></a
+          >
+          <a href="routes.html" class="sidebar-link" data-page="routes.html"
+            ><svg
               width="20"
               height="20"
               viewBox="0 0 24 24"
@@ -160,16 +154,14 @@
             >
               <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6" />
               <line x1="8" y1="2" x2="8" y2="18" />
-              <line x1="16" y1="6" x2="16" y2="22" />
-            </svg>
-            <span class="sidebar-link-text">Routes</span>
-          </a>
+              <line x1="16" y1="6" x2="16" y2="22" /></svg
+            ><span class="sidebar-link-text">Routes</span></a
+          >
           <a
             href="schedule-builder.html"
             class="sidebar-link"
             data-page="schedule-builder.html"
-          >
-            <svg
+            ><svg
               width="20"
               height="20"
               viewBox="0 0 24 24"
@@ -180,17 +172,15 @@
               <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
               <line x1="16" y1="2" x2="16" y2="6" />
               <line x1="8" y1="2" x2="8" y2="6" />
-              <line x1="3" y1="10" x2="21" y2="10" />
-            </svg>
-            <span class="sidebar-link-text">Schedule Builder</span>
-          </a>
+              <line x1="3" y1="10" x2="21" y2="10" /></svg
+            ><span class="sidebar-link-text">Schedule Builder</span></a
+          >
           <div class="sidebar-section-label">Operations</div>
           <a
             href="student-requests.html"
-            class="sidebar-link active"
+            class="sidebar-link"
             data-page="student-requests.html"
-          >
-            <svg
+            ><svg
               width="20"
               height="20"
               viewBox="0 0 24 24"
@@ -201,16 +191,14 @@
               <path
                 d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"
               />
-              <polyline points="14 2 14 8 20 8" />
-            </svg>
-            <span class="sidebar-link-text">Requests</span>
-          </a>
+              <polyline points="14 2 14 8 20 8" /></svg
+            ><span class="sidebar-link-text">Requests</span></a
+          >
           <a
             href="complaints.html"
             class="sidebar-link"
             data-page="complaints.html"
-          >
-            <svg
+            ><svg
               width="20"
               height="20"
               viewBox="0 0 24 24"
@@ -222,12 +210,11 @@
                 d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"
               />
               <line x1="12" y1="9" x2="12" y2="13" />
-              <line x1="12" y1="17" x2="12.01" y2="17" />
-            </svg>
-            <span class="sidebar-link-text">Complaints</span>
-          </a>
-          <a href="reports.html" class="sidebar-link" data-page="reports.html">
-            <svg
+              <line x1="12" y1="17" x2="12.01" y2="17" /></svg
+            ><span class="sidebar-link-text">Complaints</span></a
+          >
+          <a href="reports.html" class="sidebar-link" data-page="reports.html"
+            ><svg
               width="20"
               height="20"
               viewBox="0 0 24 24"
@@ -237,46 +224,12 @@
             >
               <line x1="18" y1="20" x2="18" y2="10" />
               <line x1="12" y1="20" x2="12" y2="4" />
-              <line x1="6" y1="20" x2="6" y2="14" />
-            </svg>
-            <span class="sidebar-link-text">Reports</span>
-          </a>
+              <line x1="6" y1="20" x2="6" y2="14" /></svg
+            ><span class="sidebar-link-text">Reports</span></a
+          >
         </nav>
+
         <div class="sidebar-footer">
-          <button class="sidebar-link theme-toggle" id="themeToggle">
-            <svg
-              id="themeIconDark"
-              width="20"
-              height="20"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-            >
-              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
-            </svg>
-            <svg
-              id="themeIconLight"
-              class="hidden"
-              width="20"
-              height="20"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-            >
-              <circle cx="12" cy="12" r="5" />
-              <line x1="12" y1="1" x2="12" y2="3" />
-              <line x1="12" y1="21" x2="12" y2="23" />
-              <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
-              <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
-              <line x1="1" y1="12" x2="3" y2="12" />
-              <line x1="21" y1="12" x2="23" y2="12" />
-              <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
-              <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
-            </svg>
-            <span class="sidebar-link-text" id="themeText">Light Mode</span>
-          </button>
           <a href="#" class="sidebar-link" id="logoutBtn">
             <svg
               width="20"
@@ -301,36 +254,36 @@
         <main class="main">
           <div class="page-header">
             <div>
-              <h1>Student Requests</h1>
-              <p class="subtitle">Review and manage bus service requests</p>
+              <h1>Students</h1>
+              <p class="subtitle">
+                Manage student accounts and bus assignments
+              </p>
             </div>
-          </div>
-
-          <!-- Stats Row -->
-          <div class="requests-stats">
-            <div class="request-stat-card pending">
-              <div class="request-stat-value" id="statPending">-</div>
-              <div class="request-stat-label">Pending</div>
-            </div>
-            <div class="request-stat-card approved">
-              <div class="request-stat-value" id="statApproved">-</div>
-              <div class="request-stat-label">Approved</div>
-            </div>
-            <div class="request-stat-card rejected">
-              <div class="request-stat-value" id="statRejected">-</div>
-              <div class="request-stat-label">Rejected</div>
-            </div>
+            <button class="btn btn-primary" id="addStudentBtn">
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+              Add Student
+            </button>
           </div>
 
           <!-- Filter Tabs -->
           <div class="filter-tabs">
             <button class="tab-btn active" data-filter="all">All</button>
+            <button class="tab-btn" data-filter="approved">Assigned</button>
             <button class="tab-btn" data-filter="pending">Pending</button>
-            <button class="tab-btn" data-filter="approved">Approved</button>
-            <button class="tab-btn" data-filter="rejected">Rejected</button>
+            <button class="tab-btn" data-filter="inactive">Inactive</button>
           </div>
 
-          <!-- Table -->
+          <!-- Students Table -->
           <div class="card">
             <div class="table-wrapper">
               <table class="table">
@@ -339,15 +292,15 @@
                     <th>Student</th>
                     <th>Roll No</th>
                     <th>Contact</th>
+                    <th>Emergency Contact</th>
+                    <th>Bus Status</th>
                     <th>Assigned Stop</th>
-                    <th>Requested</th>
-                    <th>Status</th>
                     <th>Actions</th>
                   </tr>
                 </thead>
-                <tbody id="requestsTableBody">
+                <tbody id="studentsTableBody">
                   <tr>
-                    <td colspan="7" class="loading">Loading requests...</td>
+                    <td colspan="7" class="loading">Loading students...</td>
                   </tr>
                 </tbody>
               </table>
@@ -357,90 +310,145 @@
       </div>
     </div>
 
-    <!-- Approve Modal -->
-    <div class="modal" id="approveModal">
+    <!-- Add/Edit Student Modal -->
+    <div class="modal" id="studentModal">
       <div class="modal-content">
         <div class="modal-header">
-          <h2>Approve Request</h2>
-          <button class="modal-close" id="closeApproveModal">&times;</button>
+          <h2 id="studentModalTitle">Add Student</h2>
+          <button class="modal-close" id="closeStudentModal">&times;</button>
         </div>
         <div class="modal-body">
-          <!-- Student Info -->
-          <div class="request-info-box" id="approveStudentInfo"></div>
+          <form id="studentForm">
+            <input type="hidden" id="studentId" />
 
-          <!-- Assign Stop -->
-          <div class="form-group">
-            <label>Select Route *</label>
-            <select id="approveRouteSelect" class="form-select" required>
-              <option value="">Select route...</option>
-            </select>
-          </div>
+            <div class="form-section-title">Personal Information</div>
 
-          <div class="form-group">
-            <label>Select Stop *</label>
-            <select id="approveStopSelect" class="form-select" required>
-              <option value="">Select route first...</option>
-            </select>
-          </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="fullName">Full Name *</label>
+                <input
+                  type="text"
+                  id="fullName"
+                  class="form-input"
+                  placeholder="e.g. John Doe"
+                  required
+                />
+              </div>
+              <div class="form-group">
+                <label for="email">Email</label>
+                <input
+                  type="email"
+                  id="email"
+                  class="form-input"
+                  placeholder="e.g. john@email.com"
+                />
+              </div>
+            </div>
 
-          <div class="form-group">
-            <label>Admin Notes</label>
-            <textarea
-              id="approveNotes"
-              class="form-textarea"
-              rows="2"
-              placeholder="Optional notes..."
-            ></textarea>
-          </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="phone">Phone *</label>
+                <input
+                  type="text"
+                  id="phone"
+                  class="form-input"
+                  placeholder="e.g. 9100000001"
+                  required
+                />
+              </div>
+              <div class="form-group">
+                <label for="password">Password *</label>
+                <input
+                  type="password"
+                  id="password"
+                  class="form-input"
+                  placeholder="Min 6 characters"
+                />
+                <span class="form-hint" id="passwordHint"
+                  >Required for new students</span
+                >
+              </div>
+            </div>
+
+            <div class="form-section-title">Student Details</div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="roll">Roll Number</label>
+                <input
+                  type="text"
+                  id="roll"
+                  class="form-input"
+                  placeholder="e.g. 22A91A0501"
+                />
+              </div>
+              <div class="form-group">
+                <label for="emergencyContact">Emergency Contact</label>
+                <input
+                  type="text"
+                  id="emergencyContact"
+                  class="form-input"
+                  placeholder="Parent/Guardian phone"
+                />
+              </div>
+            </div>
+
+            <div class="form-section-title">Bus Assignment</div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="assignedStop">Assigned Stop</label>
+                <select id="assignedStop" class="form-select">
+                  <option value="">No stop assigned</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="busStatus">Status</label>
+                <select id="busStatus" class="form-select">
+                  <option value="inactive">Inactive</option>
+                  <option value="pending">Pending</option>
+                  <option value="approved">Approved</option>
+                  <option value="rejected">Rejected</option>
+                </select>
+              </div>
+            </div>
+          </form>
         </div>
         <div class="modal-footer">
-          <button class="btn btn-secondary" id="cancelApproveBtn">
+          <button class="btn btn-secondary" id="cancelStudentBtn">
             Cancel
           </button>
-          <button class="btn btn-success" id="confirmApproveBtn">
-            Approve
+          <button class="btn btn-primary" id="saveStudentBtn">
+            Save Student
           </button>
         </div>
       </div>
     </div>
 
-    <!-- Reject Modal -->
-    <div class="modal" id="rejectModal">
+    <!-- Delete Confirm Modal -->
+    <div class="modal" id="deleteModal">
       <div class="modal-content modal-sm">
         <div class="modal-header">
-          <h2>Reject Request</h2>
-          <button class="modal-close" id="closeRejectModal">&times;</button>
+          <h2>Delete Student</h2>
+          <button class="modal-close" id="closeDeleteModal">&times;</button>
         </div>
         <div class="modal-body">
-          <p style="color: var(--text-muted); margin-bottom: 16px">
-            Rejecting request for <strong id="rejectStudentName"></strong>
+          <p>
+            Are you sure you want to delete
+            <strong id="deleteStudentName"></strong>? Their account will be
+            deactivated.
           </p>
-          <div class="form-group">
-            <label>Reason *</label>
-            <textarea
-              id="rejectNotes"
-              class="form-textarea"
-              rows="3"
-              placeholder="Reason for rejection..."
-            ></textarea>
-          </div>
         </div>
         <div class="modal-footer">
-          <button class="btn btn-secondary" id="cancelRejectBtn">Cancel</button>
-          <button class="btn btn-danger" id="confirmRejectBtn">Reject</button>
+          <button class="btn btn-secondary" id="cancelDeleteBtn">Cancel</button>
+          <button class="btn btn-danger" id="confirmDeleteBtn">Delete</button>
         </div>
       </div>
     </div>
-
-    <!-- Firebase SDK -->
-    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-messaging-compat.js"></script>
 
     <script src="assets/js/api.js"></script>
     <script src="assets/js/auth.js"></script>
     <script src="assets/js/sidebar.js"></script>
-    <script src="assets/js/push.js"></script>
-    <script src="assets/js/theme.js"></script>
-    <script src="assets/js/requests.js"></script>
+    <script src="assets/js/students.js"></script>
   </body>
 </html>
