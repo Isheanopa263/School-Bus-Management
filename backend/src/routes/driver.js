@@ -754,4 +754,172 @@ router.get(
   },
 );
 
+/**
+ * POST /api/driver/attendance
+ * Mark student attendance
+ */
+router.post(
+  "/attendance",
+  requireAuth,
+  requireRole(["driver"]),
+  async (req, res) => {
+    const userId = req.user.userid;
+    const { trip_id, student_id, stop_id, event_type } = req.body;
+
+    if (!trip_id || !student_id || !stop_id || !event_type) {
+      return res.status(400).json({
+        error: "trip_id, student_id, stop_id, and event_type required",
+      });
+    }
+
+    if (!["pickup", "drop"].includes(event_type)) {
+      return res
+        .status(400)
+        .json({ error: "event_type must be pickup or drop" });
+    }
+
+    try {
+      // Get driver_id
+      const driverResult = await db.query(
+        "SELECT id FROM drivers WHERE userid = $1",
+        [userId],
+      );
+
+      if (driverResult.rows.length === 0) {
+        return res.status(404).json({ error: "Driver profile not found" });
+      }
+
+      const driverId = driverResult.rows[0].id;
+
+      // Verify trip belongs to driver
+      const tripCheck = await db.query(
+        `SELECT t.id, t.status
+         FROM trips t
+         JOIN route_assignments ra ON t.assignment_id = ra.id
+         WHERE t.id = $1 AND ra.driver_id = $2`,
+        [trip_id, driverId],
+      );
+
+      if (tripCheck.rows.length === 0) {
+        return res.status(404).json({ error: "Trip not found" });
+      }
+
+      // Insert attendance
+      const { rows } = await db.query(
+        `INSERT INTO student_attendance 
+          (trip_id, student_id, stop_id, event_type, marked_by_driver_id)
+         VALUES ($1, $2, $3, $4, $5)
+         ON CONFLICT (trip_id, student_id, event_type) 
+         DO UPDATE SET timestamp = NOW()
+         RETURNING *`,
+        [trip_id, student_id, stop_id, event_type, driverId],
+      );
+
+      res.status(201).json({
+        attendance: rows[0],
+        message: "Attendance marked",
+      });
+    } catch (err) {
+      console.error("Mark attendance error:", err);
+      res.status(500).json({ error: "Failed to mark attendance" });
+    }
+  },
+);
+
+/**
+ * DELETE /api/driver/attendance/:id
+ * Unmark attendance (mistake)
+ */
+router.delete(
+  "/attendance/:id",
+  requireAuth,
+  requireRole(["driver"]),
+  async (req, res) => {
+    const userId = req.user.userid;
+    const { id } = req.params;
+
+    try {
+      const driverResult = await db.query(
+        "SELECT id FROM drivers WHERE userid = $1",
+        [userId],
+      );
+
+      if (driverResult.rows.length === 0) {
+        return res.status(404).json({ error: "Driver profile not found" });
+      }
+
+      const driverId = driverResult.rows[0].id;
+
+      const { rowCount } = await db.query(
+        "DELETE FROM student_attendance WHERE id = $1 AND marked_by_driver_id = $2",
+        [id, driverId],
+      );
+
+      if (rowCount === 0) {
+        return res.status(404).json({ error: "Attendance record not found" });
+      }
+
+      res.json({ message: "Attendance unmarked" });
+    } catch (err) {
+      console.error("Delete attendance error:", err);
+      res.status(500).json({ error: "Failed to unmark attendance" });
+    }
+  },
+);
+
+/**
+ * GET /api/driver/attendance/:tripId
+ * Get all attendance records for a trip
+ */
+router.get(
+  "/attendance/:tripId",
+  requireAuth,
+  requireRole(["driver"]),
+  async (req, res) => {
+    const userId = req.user.userid;
+    const { tripId } = req.params;
+
+    try {
+      const driverResult = await db.query(
+        "SELECT id FROM drivers WHERE userid = $1",
+        [userId],
+      );
+
+      if (driverResult.rows.length === 0) {
+        return res.status(404).json({ error: "Driver profile not found" });
+      }
+
+      const driverId = driverResult.rows[0].id;
+
+      // Verify trip belongs to driver
+      const tripCheck = await db.query(
+        `SELECT t.id
+         FROM trips t
+         JOIN route_assignments ra ON t.assignment_id = ra.id
+         WHERE t.id = $1 AND ra.driver_id = $2`,
+        [tripId, driverId],
+      );
+
+      if (tripCheck.rows.length === 0) {
+        return res.status(404).json({ error: "Trip not found" });
+      }
+
+      const { rows } = await db.query(
+        `SELECT sa.*, u.full_name as student_name
+         FROM student_attendance sa
+         JOIN students s ON sa.student_id = s.sid
+         JOIN users u ON s.userid = u.userid
+         WHERE sa.trip_id = $1
+         ORDER BY sa.timestamp DESC`,
+        [tripId],
+      );
+
+      res.json({ attendance: rows });
+    } catch (err) {
+      console.error("Get attendance error:", err);
+      res.status(500).json({ error: "Failed to fetch attendance" });
+    }
+  },
+);
+
 module.exports = router;

@@ -214,6 +214,9 @@ const App = (() => {
       case "profile":
         if (studentProfile) Profile.render(studentProfile);
         break;
+      case "attendance":
+        Attendance.load();
+        break;
     }
   }
 

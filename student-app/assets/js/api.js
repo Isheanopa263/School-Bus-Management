@@ -138,4 +138,8 @@ const StudentAPI = {
   getLiveTracking() {
     return apiFetch("/student/tracking/live");
   },
+
+  getAttendance() {
+    return apiFetch("/student/attendance");
+  },
 };

@@ -2398,3 +2398,53 @@ body {
   color: var(--text);
   border-color: var(--primary);
 }
+/* Attendance Checkbox */
+.attendance-checkbox-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  margin-right: 12px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.attendance-checkbox {
+  position: absolute;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.checkmark {
+  width: 24px;
+  height: 24px;
+  border: 2px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+}
+
+.attendance-checkbox:checked ~ .checkmark {
+  background: var(--success);
+  border-color: var(--success);
+}
+
+.attendance-checkbox:checked ~ .checkmark::after {
+  content: "✓";
+  color: white;
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.attendance-checkbox-wrapper:hover .checkmark {
+  border-color: var(--primary);
+}
+
+.attendance-time {
+  font-size: 11px;
+  color: var(--success);
+  margin-top: 4px;
+  font-weight: 500;
+}

@@ -489,4 +489,54 @@ router.get(
     }
   },
 );
+
+/**
+ * GET /api/student/attendance
+ * Student views own attendance history
+ */
+router.get(
+  "/attendance",
+  requireAuth,
+  requireRole(["student"]),
+  async (req, res) => {
+    try {
+      const studentResult = await db.query(
+        "SELECT sid FROM students WHERE userid = $1",
+        [req.user.userid],
+      );
+
+      if (studentResult.rows.length === 0) {
+        return res.status(404).json({ error: "Student profile not found" });
+      }
+
+      const sid = studentResult.rows[0].sid;
+
+      const { rows } = await db.query(
+        `SELECT 
+          sa.id,
+          sa.event_type,
+          sa.timestamp,
+          sa.trip_id,
+          t.trip_date,
+          t.trip_type,
+          st.name as stop_name,
+          r.name as route_name
+         FROM student_attendance sa
+         LEFT JOIN trips t ON sa.trip_id = t.id
+         LEFT JOIN stops st ON sa.stop_id = st.id
+         LEFT JOIN route_assignments ra ON t.assignment_id = ra.id
+         LEFT JOIN routes r ON ra.route_id = r.rid
+         WHERE sa.student_id = $1
+         ORDER BY sa.timestamp DESC
+         LIMIT 50`,
+        [sid],
+      );
+
+      res.json({ attendance: rows });
+    } catch (err) {
+      console.error("Get student attendance error:", err);
+      res.status(500).json({ error: "Failed to fetch attendance" });
+    }
+  },
+);
 module.exports = router;

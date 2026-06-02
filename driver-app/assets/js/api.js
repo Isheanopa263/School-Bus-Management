@@ -100,4 +100,26 @@ const DriverAPI = {
   getSOSHistory() {
     return apiFetch("/driver/sos/history");
   },
+
+  markAttendance(tripId, studentId, stopId, eventType) {
+    return apiFetch("/driver/attendance", {
+      method: "POST",
+      body: JSON.stringify({
+        trip_id: tripId,
+        student_id: studentId,
+        stop_id: stopId,
+        event_type: eventType,
+      }),
+    });
+  },
+
+  unmarkAttendance(attendanceId) {
+    return apiFetch(`/driver/attendance/${attendanceId}`, {
+      method: "DELETE",
+    });
+  },
+
+  getTripAttendance(tripId) {
+    return apiFetch(`/driver/attendance/${tripId}`);
+  },
 };

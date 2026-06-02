@@ -7,6 +7,7 @@ const RouteView = (() => {
   let tripStartTime = null;
   let timerInterval = null;
   let routeStops = [];
+  let attendanceMap = {};
   let routeAssignment = null; // ← store full assignment object
   let currentTab = "dashboard";
   let mapInitialized = false;
@@ -384,7 +385,7 @@ const RouteView = (() => {
         </div>
         <div class="students-panel">
           <div class="students-panel-inner">
-            ${renderStudents(stop.students)}
+            ${renderStudents(stop.students, stop.id)}
           </div>
         </div>
       </div>
@@ -393,22 +394,40 @@ const RouteView = (() => {
       .join("");
   }
 
-  function renderStudents(students) {
+  function renderStudents(students, stopId) {
     if (students.length === 0) {
       return `<div class="no-students">No students at this stop</div>`;
     }
+
     return students
-      .map(
-        (s) => `
+      .map((s) => {
+        const isMarked = !!attendanceMap[s.sid];
+        const tripType = activeTripId ? getCurrentTripType() : "pickup";
+
+        return `
       <div class="student-item">
+        ${
+          activeTripId
+            ? `
+          <label class="attendance-checkbox-wrapper">
+            <input type="checkbox" 
+                   class="attendance-checkbox" 
+                   ${isMarked ? "checked" : ""}
+                   onchange="RouteView.toggleAttendance('${s.sid}', '${stopId}', '${tripType}', this.checked)" />
+            <span class="checkmark"></span>
+          </label>
+        `
+            : ""
+        }
         <div class="student-avatar">${s.full_name.charAt(0).toUpperCase()}</div>
         <div class="student-info">
           <div class="student-name">${s.full_name}</div>
           <div class="student-roll">${s.roll ? `Roll: ${s.roll}` : "No roll number"}</div>
+          ${isMarked ? `<div class="attendance-time">✓ ${tripType === "pickup" ? "Picked up" : "Dropped off"} at ${new Date(attendanceMap[s.sid].timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</div>` : ""}
         </div>
       </div>
-    `,
-      )
+    `;
+      })
       .join("");
   }
 
@@ -446,6 +465,7 @@ const RouteView = (() => {
   function setTripIdle() {
     activeTripId = null;
     tripStartTime = null;
+    attendanceMap = {};
     stopTimer();
     GPS.stop();
     GPS.offPosition(onGPSUpdate);
@@ -472,6 +492,13 @@ const RouteView = (() => {
     GPS.start(trip.id);
     GPS.onPosition(onGPSUpdate);
     if (mapInitialized) Navigation.startNavigation();
+    loadAttendance().then(() => {
+      renderStops(
+        document.getElementById("stops-list"),
+        document.getElementById("stops-count"),
+        routeStops,
+      );
+    });
   }
 
   // ── Timer ─────────────────────────────────────────────────────────────
@@ -534,6 +561,12 @@ const RouteView = (() => {
       );
 
       setTripActive(tripData.trip);
+      await loadAttendance();
+      renderStops(
+        document.getElementById("stops-list"),
+        document.getElementById("stops-count"),
+        routeStops,
+      );
       GPS.start(tripData.trip.id);
       GPS.onPosition(onGPSUpdate);
 
@@ -592,6 +625,7 @@ const RouteView = (() => {
   function setTripCompleted(trip) {
     activeTripId = null;
     tripStartTime = null;
+    attendanceMap = {};
     stopTimer();
     GPS.stop();
     GPS.offPosition(onGPSUpdate);
@@ -737,5 +771,71 @@ const RouteView = (() => {
     }
   }
 
-  return { init, toggleStop };
+  async function loadAttendance() {
+    if (!activeTripId) {
+      attendanceMap = {};
+      return;
+    }
+
+    try {
+      const data = await DriverAPI.getTripAttendance(activeTripId);
+      attendanceMap = {};
+      data.attendance.forEach((record) => {
+        attendanceMap[record.student_id] = record;
+      });
+    } catch (err) {
+      console.error("Load attendance error:", err);
+      attendanceMap = {};
+    }
+  }
+
+  function getCurrentTripType() {
+    const stored = sessionStorage.getItem("active_trip");
+    if (!stored) return "pickup";
+    try {
+      return JSON.parse(stored).trip_type || "pickup";
+    } catch {
+      return "pickup";
+    }
+  }
+
+  async function toggleAttendance(studentId, stopId, eventType, isChecked) {
+    if (!activeTripId) {
+      alert("No active trip");
+      return;
+    }
+
+    try {
+      if (isChecked) {
+        // Mark attendance
+        const result = await DriverAPI.markAttendance(
+          activeTripId,
+          studentId,
+          stopId,
+          eventType,
+        );
+        attendanceMap[studentId] = result.attendance;
+      } else {
+        // Unmark attendance
+        const record = attendanceMap[studentId];
+        if (record) {
+          await DriverAPI.unmarkAttendance(record.id);
+          delete attendanceMap[studentId];
+        }
+      }
+
+      // Re-render stops to update UI
+      renderStops(
+        document.getElementById("stops-list"),
+        document.getElementById("stops-count"),
+        routeStops,
+      );
+    } catch (err) {
+      alert(err.message || "Failed to update attendance");
+      // Revert checkbox state
+      event.target.checked = !isChecked;
+    }
+  }
+
+  return { init, toggleStop, toggleAttendance };
 })();

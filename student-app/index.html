@@ -568,6 +568,23 @@
                 <span class="sidebar-link-text">Notifications</span>
               </button>
 
+              <button class="sidebar-link" data-tab="attendance">
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <path d="M9 11l3 3L22 4" />
+                  <path
+                    d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"
+                  />
+                </svg>
+                <span class="sidebar-link-text">Attendance</span>
+              </button>
+
               <button class="sidebar-link" data-tab="complaint">
                 <svg
                   width="20"
@@ -738,6 +755,21 @@
               <div id="complaintContent"></div>
             </div>
 
+            <!-- Attendance -->
+            <div class="tab-content" id="tab-attendance">
+              <div class="page-header">
+                <div>
+                  <h1>Attendance History</h1>
+                  <p class="subtitle">Your pickup and drop records</p>
+                </div>
+              </div>
+              <div id="attendanceContent">
+                <div style="text-align: center; padding: 40px">
+                  <div class="spinner"></div>
+                </div>
+              </div>
+            </div>
+
             <!-- Profile -->
             <div class="tab-content" id="tab-profile">
               <div class="page-header">
@@ -874,6 +906,7 @@
     <script src="assets/js/notifications.js"></script>
     <script src="assets/js/complaint.js"></script>
     <script src="assets/js/profile.js"></script>
+    <script src="assets/js/attendance.js"></script>
     <script src="assets/js/push.js"></script>
     <script src="assets/js/theme.js"></script>
     <script src="assets/js/app.js"></script>
