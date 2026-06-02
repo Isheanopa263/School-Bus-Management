@@ -804,6 +804,50 @@ router.post(
         return res.status(404).json({ error: "Trip not found" });
       }
 
+      // ✅ NEW: Check if bus is near the stop OR stop has been visited
+      const proximityCheck = await db.query(
+        `WITH latest_location AS (
+           SELECT location 
+           FROM live_locations 
+           WHERE trip_id = $1 
+           ORDER BY recorded_at DESC 
+           LIMIT 1
+         ),
+         stop_location AS (
+           SELECT location FROM stops WHERE id = $2
+         ),
+         visited AS (
+           SELECT id FROM trip_stop_visits 
+           WHERE trip_id = $1 AND stop_id = $2
+         )
+         SELECT 
+           ST_Distance(
+             (SELECT location FROM latest_location)::geography,
+             (SELECT location FROM stop_location)::geography
+           ) AS distance_m,
+           (SELECT id FROM visited) AS visit_id`,
+        [trip_id, stop_id],
+      );
+
+      if (proximityCheck.rows.length === 0) {
+        return res.status(400).json({
+          error: "Cannot verify location. Make sure GPS is active.",
+        });
+      }
+
+      const { distance_m, visit_id } = proximityCheck.rows[0];
+      const PROXIMITY_THRESHOLD = 150; // 150 meters
+
+      // Allow if: stop already visited OR bus is currently near stop
+      if (
+        !visit_id &&
+        (distance_m === null || distance_m > PROXIMITY_THRESHOLD)
+      ) {
+        return res.status(403).json({
+          error: `You must be at the stop to mark attendance. Currently ${Math.round(distance_m || 0)}m away (max ${PROXIMITY_THRESHOLD}m).`,
+        });
+      }
+
       // Insert attendance
       const { rows } = await db.query(
         `INSERT INTO student_attendance 
