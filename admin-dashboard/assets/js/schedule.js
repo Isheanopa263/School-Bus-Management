@@ -3,8 +3,9 @@
  */
 (function () {
   let allAssignments = [];
-  let currentFilter = "all";
+  let currentFilter = "active"; // ← default to active
   let deletingId = null;
+  let editingId = null; // ← track if editing
 
   init();
 
@@ -29,76 +30,117 @@
     }
   }
 
+  // ── Check if expired ─────────────────────────────────────────────────
+  function isExpired(assignment) {
+    if (!assignment.end_date) return false; // No end date = ongoing
+    const endDate = new Date(assignment.end_date);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return endDate < today;
+  }
+
   // ── Render Cards ──────────────────────────────────────────────────────
   function renderAssignments() {
     const grid = el("assignmentsGrid");
 
     let filtered;
+
     if (currentFilter === "all") {
       filtered = allAssignments;
     } else if (currentFilter === "paused") {
       filtered = allAssignments.filter((a) => a.is_paused);
+    } else if (currentFilter === "expired") {
+      filtered = allAssignments.filter((a) => isExpired(a));
+    } else if (currentFilter === "active") {
+      filtered = allAssignments.filter((a) => !a.is_paused && !isExpired(a));
     } else {
+      // Shift filter
       filtered = allAssignments.filter(
-        (a) => a.shift === currentFilter && !a.is_paused,
+        (a) => a.shift === currentFilter && !a.is_paused && !isExpired(a),
       );
     }
+
     if (filtered.length === 0) {
       grid.innerHTML = `
-      <div class="schedule-empty">
-        <div class="schedule-empty-icon">📅</div>
-        <h3>No Assignments</h3>
-        <p>${currentFilter === "all" ? "Create your first assignment" : `No ${currentFilter} assignments`}</p>
-      </div>`;
+        <div class="schedule-empty">
+          <div class="schedule-empty-icon">📅</div>
+          <h3>No Assignments</h3>
+          <p>${
+            currentFilter === "all"
+              ? "Create your first assignment"
+              : currentFilter === "paused"
+                ? "No paused assignments"
+                : currentFilter === "expired"
+                  ? "No expired assignments"
+                  : currentFilter === "active"
+                    ? "No active assignments"
+                    : `No ${currentFilter} assignments`
+          }</p>
+        </div>`;
       return;
     }
 
     grid.innerHTML = filtered
-      .map(
-        (a) => `
-    <div class="assignment-card ${a.is_paused ? "paused" : ""}">
-      <div class="assignment-card-header">
-        <div class="assignment-route">📍 ${a.route_name}</div>
-        <div style="display:flex;gap:6px;align-items:center">
-          ${a.is_paused ? '<span class="paused-badge">⏸ Paused</span>' : ""}
-          <span class="assignment-shift shift-${a.shift}">${a.shift}</span>
-        </div>
-      </div>
-      <div class="assignment-details">
-        <div class="assignment-detail">
-          <div class="assignment-detail-icon bus">🚌</div>
-          <div>
-            <div class="assignment-detail-label">Bus</div>
-            <div class="assignment-detail-value">${a.bus_number}</div>
-          </div>
-        </div>
-        <div class="assignment-detail">
-          <div class="assignment-detail-icon driver">👤</div>
-          <div>
-            <div class="assignment-detail-label">Driver</div>
-            <div class="assignment-detail-value">${a.driver_name}</div>
-          </div>
-        </div>
-        <div class="assignment-detail">
-          <div class="assignment-detail-icon date">📅</div>
-          <div>
-            <div class="assignment-detail-label">Period</div>
-            <div class="assignment-detail-value">
-              ${formatDate(a.effective_date)}${a.end_date ? ` → ${formatDate(a.end_date)}` : " → Ongoing"}
+      .map((a) => {
+        const expired = isExpired(a);
+        const showActions = !expired; // Don't show pause/edit for expired
+
+        return `
+        <div class="assignment-card ${a.is_paused ? "paused" : ""} ${expired ? "expired" : ""}">
+          <div class="assignment-card-header">
+            <div class="assignment-route">📍 ${a.route_name}</div>
+            <div style="display:flex;gap:6px;align-items:center">
+              ${expired ? '<span class="expired-badge">Expired</span>' : ""}
+              ${a.is_paused && !expired ? '<span class="paused-badge">⏸ Paused</span>' : ""}
+              <span class="assignment-shift shift-${a.shift}">${a.shift}</span>
             </div>
           </div>
+          <div class="assignment-details">
+            <div class="assignment-detail">
+              <div class="assignment-detail-icon bus">🚌</div>
+              <div>
+                <div class="assignment-detail-label">Bus</div>
+                <div class="assignment-detail-value">${a.bus_number}</div>
+              </div>
+            </div>
+            <div class="assignment-detail">
+              <div class="assignment-detail-icon driver">👤</div>
+              <div>
+                <div class="assignment-detail-label">Driver</div>
+                <div class="assignment-detail-value">${a.driver_name}</div>
+              </div>
+            </div>
+            <div class="assignment-detail">
+              <div class="assignment-detail-icon date">📅</div>
+              <div>
+                <div class="assignment-detail-label">Period</div>
+                <div class="assignment-detail-value">
+                  ${formatDate(a.effective_date)}${a.end_date ? ` → ${formatDate(a.end_date)}` : " → Ongoing"}
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="assignment-card-footer" style="display:flex;gap:8px;flex-wrap:wrap">
+            ${
+              showActions
+                ? `
+              <button class="btn btn-secondary btn-sm" onclick="editAssignment('${a.id}')">
+                ✎ Edit
+              </button>
+              <button class="btn ${a.is_paused ? "btn-success" : "btn-secondary"} btn-sm" 
+                      onclick="togglePause('${a.id}', ${a.is_paused})">
+                ${a.is_paused ? "▶ Resume" : "⏸ Pause"}
+              </button>
+            `
+                : ""
+            }
+            <button class="btn btn-danger btn-sm" onclick="deleteAssignment('${a.id}', '${esc(a.route_name)}')">
+              Delete
+            </button>
+          </div>
         </div>
-      </div>
-      <div class="assignment-card-footer" style="display:flex;gap:8px">
-        <button class="btn ${a.is_paused ? "btn-success" : "btn-secondary"} btn-sm" 
-                onclick="togglePause('${a.id}', ${a.is_paused})">
-          ${a.is_paused ? "▶ Resume" : "⏸ Pause"}
-        </button>
-        <button class="btn btn-danger btn-sm" onclick="deleteAssignment('${a.id}', '${esc(a.route_name)}')">Delete</button>
-      </div>
-    </div>
-  `,
-      )
+      `;
+      })
       .join("");
   }
 
@@ -149,9 +191,7 @@
 
   // ── Events ────────────────────────────────────────────────────────────
   function setupEvents() {
-    el("addAssignmentBtn").addEventListener("click", () =>
-      el("assignmentModal").classList.add("show"),
-    );
+    el("addAssignmentBtn").addEventListener("click", () => openModalForNew());
     el("closeAssignmentModal").addEventListener("click", closeModal);
     el("cancelAssignmentBtn").addEventListener("click", closeModal);
     el("saveAssignmentBtn").addEventListener("click", saveAssignment);
@@ -177,11 +217,29 @@
     });
   }
 
-  function closeModal() {
-    el("assignmentModal").classList.remove("show");
+  function openModalForNew() {
+    editingId = null;
+    el("modalTitle").textContent = "New Assignment";
+    el("saveAssignmentText").textContent = "Create Assignment";
+    el("editingAssignmentId").value = "";
+
+    // Reset form
+    el("routeSelect").value = "";
+    el("busSelect").value = "";
+    el("driverSelect").value = "";
+    el("shiftSelect").value = "morning";
+    el("effectiveDate").value = new Date().toISOString().split("T")[0];
+    el("endDate").value = "";
+
+    el("assignmentModal").classList.add("show");
   }
 
-  // ── Save Assignment ───────────────────────────────────────────────────
+  function closeModal() {
+    el("assignmentModal").classList.remove("show");
+    editingId = null;
+  }
+
+  // ── Save Assignment (Create or Update) ────────────────────────────────
   async function saveAssignment() {
     const routeId = el("routeSelect").value;
     const busId = el("busSelect").value;
@@ -196,38 +254,74 @@
 
     const btn = el("saveAssignmentBtn");
     btn.disabled = true;
-    btn.textContent = "Creating...";
+    el("saveAssignmentText").textContent = editingId
+      ? "Updating..."
+      : "Creating...";
+
+    const body = {
+      route_id: routeId,
+      bus_id: busId,
+      driver_id: driverId,
+      shift,
+      effective_date: effectiveDate,
+      end_date: endDate || null,
+    };
 
     try {
-      await apiFetch("/route-assignments", {
-        method: "POST",
-        body: JSON.stringify({
-          route_id: routeId,
-          bus_id: busId,
-          driver_id: driverId,
-          shift,
-          effective_date: effectiveDate,
-          end_date: endDate || null,
-        }),
-      });
+      if (editingId) {
+        await apiFetch(`/route-assignments/${editingId}`, {
+          method: "PUT",
+          body: JSON.stringify(body),
+        });
+      } else {
+        await apiFetch("/route-assignments", {
+          method: "POST",
+          body: JSON.stringify(body),
+        });
+      }
 
       closeModal();
       await loadAssignments();
     } catch (err) {
-      alert(err.message || "Failed to create assignment");
+      alert(
+        err.message ||
+          `Failed to ${editingId ? "update" : "create"} assignment`,
+      );
     } finally {
       btn.disabled = false;
-      btn.textContent = "Create Assignment";
+      el("saveAssignmentText").textContent = editingId
+        ? "Update Assignment"
+        : "Create Assignment";
     }
   }
 
-  // ── Delete Assignment ─────────────────────────────────────────────────
-  window.deleteAssignment = function (id, name) {
-    deletingId = id;
-    el("deleteAssignmentName").textContent = name;
-    el("deleteModal").classList.add("show");
+  // ── Edit Assignment ───────────────────────────────────────────────────
+  window.editAssignment = function (id) {
+    const assignment = allAssignments.find((a) => a.id === id);
+    if (!assignment) return;
+
+    editingId = id;
+    el("modalTitle").textContent = "Edit Assignment";
+    el("saveAssignmentText").textContent = "Update Assignment";
+    el("editingAssignmentId").value = id;
+
+    // Pre-fill form
+    el("routeSelect").value = assignment.route_id;
+    el("busSelect").value = assignment.bus_id;
+    el("driverSelect").value =
+      assignment.driver_table_id || assignment.driver_id;
+    el("shiftSelect").value = assignment.shift;
+    el("effectiveDate").value = new Date(assignment.effective_date)
+      .toISOString()
+      .split("T")[0];
+    el("endDate").value = assignment.end_date
+      ? new Date(assignment.end_date).toISOString().split("T")[0]
+      : "";
+
+    el("assignmentModal").classList.add("show");
   };
 
+  // ── Toggle Pause ──────────────────────────────────────────────────────
   window.togglePause = async function (id, isPaused) {
     const action = isPaused ? "resume" : "pause";
     if (!confirm(`Are you sure you want to ${action} this assignment?`)) return;
@@ -242,6 +336,13 @@
     }
   };
 
+  // ── Delete ────────────────────────────────────────────────────────────
+  window.deleteAssignment = function (id, name) {
+    deletingId = id;
+    el("deleteAssignmentName").textContent = name;
+    el("deleteModal").classList.add("show");
+  };
+
   async function confirmDelete() {
     if (!deletingId) return;
 
@@ -250,9 +351,7 @@
     btn.textContent = "Deleting...";
 
     try {
-      await apiFetch(`/route-assignments/${deletingId}`, {
-        method: "DELETE",
-      });
+      await apiFetch(`/route-assignments/${deletingId}`, { method: "DELETE" });
       el("deleteModal").classList.remove("show");
       await loadAssignments();
     } catch (err) {

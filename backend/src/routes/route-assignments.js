@@ -158,4 +158,56 @@ router.put(
     }
   },
 );
+
+/**
+ * PUT /api/route-assignments/:id - Admin only
+ * Edit an assignment
+ */
+router.put("/:id", requireAuth, requireRole(["admin"]), async (req, res) => {
+  const { id } = req.params;
+  const { route_id, bus_id, driver_id, effective_date, end_date, shift } =
+    req.body;
+
+  if (!route_id || !bus_id || !driver_id || !effective_date || !shift) {
+    return res.status(400).json({ error: "Missing required fields" });
+  }
+
+  try {
+    const { rows } = await db.query(
+      `UPDATE route_assignments
+         SET route_id       = $1,
+             bus_id         = $2,
+             driver_id      = $3,
+             effective_date = $4,
+             end_date       = $5,
+             shift          = $6
+         WHERE id = $7
+         RETURNING *`,
+      [
+        route_id,
+        bus_id,
+        driver_id,
+        effective_date,
+        end_date || null,
+        shift,
+        id,
+      ],
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ error: "Assignment not found" });
+    }
+
+    res.json({ assignment: rows[0], message: "Assignment updated" });
+  } catch (err) {
+    if (err.code === "23505") {
+      return res
+        .status(409)
+        .json({ error: "Bus or driver already assigned for this date/shift" });
+    }
+    console.error("Update assignment error:", err);
+    res.status(500).json({ error: "Failed to update assignment" });
+  }
+});
+
 module.exports = router;
