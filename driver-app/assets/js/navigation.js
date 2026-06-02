@@ -8,13 +8,14 @@ const Navigation = (() => {
   let driverMarker = null;
   let stopMarkers = [];
   let stopsData = [];
+  let routeMeta = null; // ← stores assignment object (contains route_path WKT)
+  let startEndMarkers = []; // ← for green start + red end dots
   let currentStopIdx = 0;
   let isNavigating = false;
 
-  const ARRIVAL_THRESHOLD_M = 100; // meters to consider "arrived"
+  const ARRIVAL_THRESHOLD_M = 100;
   const DEFAULT_ZOOM = 14;
 
-  // Custom icons
   const icons = {
     driver: null,
     stopDefault: null,
@@ -22,8 +23,8 @@ const Navigation = (() => {
     stopVisited: null,
   };
 
-  // ── Initialize Map ───────────────────────────────────────────────────
-  function initMap(stops, routePath) {
+  // ── Initialize Map ────────────────────────────────────────────────────
+  function initMap(stops, route) {
     const mapEl = document.getElementById("route-map");
     if (!mapEl) return;
 
@@ -33,7 +34,9 @@ const Navigation = (() => {
     }
 
     stopsData = stops || [];
+    routeMeta = route || null;
     stopMarkers = [];
+    startEndMarkers = [];
     currentStopIdx = 0;
 
     map = L.map("route-map", {
@@ -41,7 +44,6 @@ const Navigation = (() => {
       attributionControl: true,
     });
 
-    // Light map tiles
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
       maxZoom: 19,
       attribution: "© OpenStreetMap contributors",
@@ -52,7 +54,6 @@ const Navigation = (() => {
     if (stopsData.length > 0) {
       addStopMarkers();
       fitMapToRoute();
-      // Draw road-following route (async)
       drawRoute();
     }
 
@@ -62,15 +63,15 @@ const Navigation = (() => {
     }
   }
 
-  // ── Create Icons ───────────────────────────────────────────────────────
+  // ── Create Icons ──────────────────────────────────────────────────────
   function createIcons() {
     icons.driver = L.divIcon({
       className: "driver-marker",
       html: `<div class="driver-marker-inner">
-             <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-               <path d="M12 2L4.5 20.3l.7.7L12 18l6.8 3 .7-.7L12 2z" fill="#0ea5e9"/>
-             </svg>
-           </div>`,
+               <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                 <path d="M12 2L4.5 20.3l.7.7L12 18l6.8 3 .7-.7L12 2z" fill="#0ea5e9"/>
+               </svg>
+             </div>`,
       iconSize: [40, 40],
       iconAnchor: [20, 20],
     });
@@ -78,8 +79,8 @@ const Navigation = (() => {
     icons.stopDefault = L.divIcon({
       className: "stop-marker",
       html: `<div class="stop-marker-inner stop-default">
-             <div class="stop-marker-dot"></div>
-           </div>`,
+               <div class="stop-marker-dot"></div>
+             </div>`,
       iconSize: [24, 24],
       iconAnchor: [12, 12],
     });
@@ -87,8 +88,8 @@ const Navigation = (() => {
     icons.stopNext = L.divIcon({
       className: "stop-marker",
       html: `<div class="stop-marker-inner stop-next">
-             <div class="stop-marker-dot"></div>
-           </div>`,
+               <div class="stop-marker-dot"></div>
+             </div>`,
       iconSize: [32, 32],
       iconAnchor: [16, 16],
     });
@@ -96,30 +97,72 @@ const Navigation = (() => {
     icons.stopVisited = L.divIcon({
       className: "stop-marker",
       html: `<div class="stop-marker-inner stop-visited">
-             <div class="stop-marker-dot"></div>
-           </div>`,
+               <div class="stop-marker-dot"></div>
+             </div>`,
       iconSize: [24, 24],
       iconAnchor: [12, 12],
     });
   }
 
-  // ── Draw Route Following Roads (OSRM) ───────────────────────────────
-  async function drawRoute() {
-    if (!map || stopsData.length < 2) return;
-
-    // Build waypoints string for OSRM
-    // Format: lng,lat;lng,lat;lng,lat
-    const waypoints = stopsData
-      .map((s) => `${s.longitude},${s.latitude}`)
-      .join(";");
-
+  // ── Helpers: parse WKT LINESTRING into [[lat,lng], ...] ────────────────
+  function parseWKTLineString(wkt) {
+    if (!wkt) return [];
     try {
-      const response = await fetch(
-        `https://router.project-osrm.org/route/v1/driving/${waypoints}?overview=full&geometries=geojson`,
-      );
+      const content = wkt.match(/\((.*)\)/)[1];
+      return content.split(",").map((p) => {
+        const [lng, lat] = p.trim().split(" ");
+        return [parseFloat(lat), parseFloat(lng)];
+      });
+    } catch {
+      return [];
+    }
+  }
+
+  // ── Draw Route: Start -> Stops -> End ─────────────────────────────────
+  async function drawRoute() {
+    if (!map) return;
+
+    // Build waypoints
+    const waypoints = [];
+
+    const routePathCoords = routeMeta?.route_path
+      ? parseWKTLineString(routeMeta.route_path)
+      : [];
+
+    // Route start
+    if (routePathCoords.length > 0) {
+      waypoints.push({
+        lat: routePathCoords[0][0],
+        lng: routePathCoords[0][1],
+      });
+    }
+
+    // All stops in order
+    stopsData.forEach((s) => {
+      waypoints.push({ lat: s.latitude, lng: s.longitude });
+    });
+
+    // Route end
+    if (routePathCoords.length > 1) {
+      const last = routePathCoords[routePathCoords.length - 1];
+      waypoints.push({ lat: last[0], lng: last[1] });
+    }
+
+    if (waypoints.length < 2) return;
+
+    // Add start/end visual markers
+    if (routePathCoords.length > 0) {
+      addStartEndMarkers(routePathCoords);
+    }
+
+    // OSRM request
+    try {
+      const query = waypoints.map((p) => `${p.lng},${p.lat}`).join(";");
+      const url = `https://router.project-osrm.org/route/v1/driving/${query}?overview=full&geometries=geojson`;
+      const response = await fetch(url);
       const data = await response.json();
 
-      if (data.code !== "Ok" || !data.routes || data.routes.length === 0) {
+      if (data.code !== "Ok" || !data.routes?.length) {
         console.warn(
           "[NAV] OSRM routing failed, falling back to straight lines",
         );
@@ -127,10 +170,10 @@ const Navigation = (() => {
         return;
       }
 
-      // Get the road-following coordinates
-      const routeCoords = data.routes[0].geometry.coordinates.map(
-        (coord) => [coord[1], coord[0]], // GeoJSON is [lng, lat], Leaflet needs [lat, lng]
-      );
+      const routeCoords = data.routes[0].geometry.coordinates.map((c) => [
+        c[1],
+        c[0],
+      ]);
 
       if (routePolyline) map.removeLayer(routePolyline);
 
@@ -142,26 +185,39 @@ const Navigation = (() => {
         lineJoin: "round",
       }).addTo(map);
 
-      // Store route distance and duration from OSRM
-      const routeInfo = data.routes[0];
+      // Fit map to full route
+      map.fitBounds(routePolyline.getBounds(), { padding: [30, 30] });
+
+      const info = data.routes[0];
       console.log(
-        `[NAV] Route loaded: ${(routeInfo.distance / 1000).toFixed(1)} km, ` +
-          `${Math.round(routeInfo.duration / 60)} min`,
+        `[NAV] Route loaded: ${(info.distance / 1000).toFixed(1)} km, ` +
+          `${Math.round(info.duration / 60)} min`,
       );
     } catch (err) {
-      console.warn(
-        "[NAV] OSRM fetch failed, falling back to straight lines:",
-        err.message,
-      );
+      console.warn("[NAV] OSRM fetch failed:", err.message);
       drawStraightRoute();
     }
   }
 
-  // Fallback if OSRM is unavailable
+  // ── Fallback: dashed straight lines ───────────────────────────────────
   function drawStraightRoute() {
-    if (!map || stopsData.length === 0) return;
+    if (!map) return;
 
-    const coords = stopsData.map((s) => [s.latitude, s.longitude]);
+    const coords = [];
+
+    const routePathCoords = routeMeta?.route_path
+      ? parseWKTLineString(routeMeta.route_path)
+      : [];
+
+    if (routePathCoords.length > 0) coords.push(routePathCoords[0]);
+
+    stopsData.forEach((s) => coords.push([s.latitude, s.longitude]));
+
+    if (routePathCoords.length > 1) {
+      coords.push(routePathCoords[routePathCoords.length - 1]);
+    }
+
+    if (coords.length < 2) return;
 
     if (routePolyline) map.removeLayer(routePolyline);
 
@@ -174,9 +230,39 @@ const Navigation = (() => {
     }).addTo(map);
   }
 
-  // ── Add Stop Markers ───────────────────────────────────────────────────
+  // ── Start / End Visual Markers ────────────────────────────────────────
+  function addStartEndMarkers(coords) {
+    // Clear old
+    startEndMarkers.forEach((m) => map.removeLayer(m));
+    startEndMarkers = [];
+
+    if (!coords || coords.length < 2) return;
+
+    const startMarker = L.circleMarker(coords[0], {
+      radius: 7,
+      color: "#10b981",
+      fillColor: "#10b981",
+      fillOpacity: 1,
+      weight: 2,
+    })
+      .addTo(map)
+      .bindPopup("Route Start");
+
+    const endMarker = L.circleMarker(coords[coords.length - 1], {
+      radius: 7,
+      color: "#ef4444",
+      fillColor: "#ef4444",
+      fillOpacity: 1,
+      weight: 2,
+    })
+      .addTo(map)
+      .bindPopup("Route End");
+
+    startEndMarkers.push(startMarker, endMarker);
+  }
+
+  // ── Stop Markers ──────────────────────────────────────────────────────
   function addStopMarkers() {
-    // Clear existing
     stopMarkers.forEach((m) => map.removeLayer(m));
     stopMarkers = [];
 
@@ -199,13 +285,25 @@ const Navigation = (() => {
     });
   }
 
-  // ── Fit Map To Route ───────────────────────────────────────────────────
+  // ── Fit map bounds to stops + route start/end ─────────────────────────
   function fitMapToRoute() {
-    if (!map || stopsData.length === 0) return;
+    if (!map) return;
 
-    const bounds = L.latLngBounds(
-      stopsData.map((s) => [s.latitude, s.longitude]),
-    );
+    const points = [];
+    stopsData.forEach((s) => points.push([s.latitude, s.longitude]));
+
+    const routePathCoords = routeMeta?.route_path
+      ? parseWKTLineString(routeMeta.route_path)
+      : [];
+
+    if (routePathCoords.length > 0) {
+      points.push(routePathCoords[0]);
+      points.push(routePathCoords[routePathCoords.length - 1]);
+    }
+
+    if (points.length === 0) return;
+
+    const bounds = L.latLngBounds(points);
     map.fitBounds(bounds, { padding: [30, 30] });
   }
 
@@ -214,11 +312,9 @@ const Navigation = (() => {
     isNavigating = true;
     currentStopIdx = 0;
 
-    // Show nav bar
     const navBar = document.getElementById("nav-bar");
     if (navBar) navBar.classList.remove("hidden");
 
-    // Highlight first stop
     updateNextStop();
   }
 
@@ -227,23 +323,18 @@ const Navigation = (() => {
     isNavigating = false;
     currentStopIdx = 0;
 
-    // Hide nav bar
     const navBar = document.getElementById("nav-bar");
     if (navBar) navBar.classList.add("hidden");
 
-    // Reset stop markers
-    stopMarkers.forEach((marker, idx) => {
-      marker.setIcon(icons.stopDefault);
-    });
+    stopMarkers.forEach((marker) => marker.setIcon(icons.stopDefault));
 
-    // Remove driver marker
     if (driverMarker) {
       map.removeLayer(driverMarker);
       driverMarker = null;
     }
   }
 
-  // ── Update Driver Position ────────────────────────────────────────────
+  // ── Driver Position ───────────────────────────────────────────────────
   function updateDriverPosition(lat, lng, heading) {
     if (!map) return;
 
@@ -258,20 +349,18 @@ const Navigation = (() => {
       driverMarker.setLatLng(latlng);
     }
 
-    // Rotate driver icon based on heading
     const markerEl = driverMarker.getElement();
     if (markerEl && heading) {
       markerEl.style.transform += ` rotate(${heading}deg)`;
     }
 
-    // Check arrival at next stop
     if (isNavigating) {
       checkArrival(lat, lng);
       updateNavStats(lat, lng);
     }
   }
 
-  // ── Check Arrival ─────────────────────────────────────────────────────
+  // ── Arrival ───────────────────────────────────────────────────────────
   function checkArrival(lat, lng) {
     if (currentStopIdx >= stopsData.length) return;
 
@@ -286,57 +375,45 @@ const Navigation = (() => {
     if (distance <= ARRIVAL_THRESHOLD_M) {
       console.log(`[NAV] Arrived at stop: ${nextStop.name}`);
 
-      // Mark as visited
       if (stopMarkers[currentStopIdx]) {
         stopMarkers[currentStopIdx].setIcon(icons.stopVisited);
       }
 
-      // Highlight stop card in list
       highlightStopCard(nextStop.id, true);
 
-      // Move to next stop
       currentStopIdx++;
 
       if (currentStopIdx < stopsData.length) {
         updateNextStop();
       } else {
-        // All stops visited
         updateNavComplete();
       }
     }
   }
 
-  // ── Update Next Stop ──────────────────────────────────────────────────
   function updateNextStop() {
     if (currentStopIdx >= stopsData.length) return;
 
     const nextStop = stopsData[currentStopIdx];
 
-    // Update nav bar
     const nameEl = document.getElementById("nav-next-stop");
-    if (nameEl)
+    if (nameEl) {
       nameEl.textContent = `${nextStop.sequence_number}. ${nextStop.name}`;
+    }
 
-    // Update progress bar
     const progressEl = document.getElementById("nav-progress");
     if (progressEl) {
       const pct = (currentStopIdx / stopsData.length) * 100;
       progressEl.style.width = `${pct}%`;
     }
 
-    // Update marker icons
     stopMarkers.forEach((marker, idx) => {
-      if (idx < currentStopIdx) {
-        marker.setIcon(icons.stopVisited);
-      } else if (idx === currentStopIdx) {
-        marker.setIcon(icons.stopNext);
-      } else {
-        marker.setIcon(icons.stopDefault);
-      }
+      if (idx < currentStopIdx) marker.setIcon(icons.stopVisited);
+      else if (idx === currentStopIdx) marker.setIcon(icons.stopNext);
+      else marker.setIcon(icons.stopDefault);
     });
   }
 
-  // ── Update Nav Stats ──────────────────────────────────────────────────
   function updateNavStats(lat, lng) {
     if (currentStopIdx >= stopsData.length) return;
 
@@ -350,7 +427,6 @@ const Navigation = (() => {
     const gpsData = GPS.getLastPosition();
     const speed = gpsData ? gpsData.speed : 0;
 
-    // Distance
     const distEl = document.getElementById("nav-distance");
     if (distEl) {
       distEl.textContent =
@@ -359,7 +435,6 @@ const Navigation = (() => {
           : `${Math.round(distance)} m`;
     }
 
-    // ETA
     const etaEl = document.getElementById("nav-eta");
     if (etaEl) {
       if (speed > 5) {
@@ -371,14 +446,10 @@ const Navigation = (() => {
       }
     }
 
-    // Speed
     const speedEl = document.getElementById("nav-speed");
-    if (speedEl) {
-      speedEl.textContent = `${Math.round(speed)} km/h`;
-    }
+    if (speedEl) speedEl.textContent = `${Math.round(speed)} km/h`;
   }
 
-  // ── Nav Complete ──────────────────────────────────────────────────────
   function updateNavComplete() {
     const nameEl = document.getElementById("nav-next-stop");
     if (nameEl) nameEl.textContent = "All stops completed! 🎉";
@@ -393,31 +464,25 @@ const Navigation = (() => {
     if (progressEl) progressEl.style.width = "100%";
   }
 
-  // ── Center On Driver ──────────────────────────────────────────────────
   function centerOnDriver() {
     if (!map || !driverMarker) {
-      // No driver position yet, fit to route
       fitMapToRoute();
       return;
     }
     map.setView(driverMarker.getLatLng(), 16, { animate: true });
   }
 
-  // ── Highlight Stop Card ───────────────────────────────────────────────
   function highlightStopCard(stopId, arrived) {
     const card = document.getElementById(`stop-${stopId}`);
     if (!card) return;
-
     if (arrived) {
       card.classList.add("stop-arrived");
-      // Auto-expand to show students
       card.classList.add("expanded");
     }
   }
 
-  // ── Distance Calculation (Haversine) ──────────────────────────────────
   function calculateDistance(lat1, lon1, lat2, lon2) {
-    const R = 6371000; // Earth radius in meters
+    const R = 6371000;
     const dLat = toRad(lat2 - lat1);
     const dLon = toRad(lon2 - lon1);
     const a =
@@ -434,7 +499,6 @@ const Navigation = (() => {
     return deg * (Math.PI / 180);
   }
 
-  // ── Public API ────────────────────────────────────────────────────────
   return {
     initMap,
     startNavigation,
