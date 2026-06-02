@@ -32,59 +32,72 @@
   // ── Render Cards ──────────────────────────────────────────────────────
   function renderAssignments() {
     const grid = el("assignmentsGrid");
-    const filtered =
-      currentFilter === "all"
-        ? allAssignments
-        : allAssignments.filter((a) => a.shift === currentFilter);
 
+    let filtered;
+    if (currentFilter === "all") {
+      filtered = allAssignments;
+    } else if (currentFilter === "paused") {
+      filtered = allAssignments.filter((a) => a.is_paused);
+    } else {
+      filtered = allAssignments.filter(
+        (a) => a.shift === currentFilter && !a.is_paused,
+      );
+    }
     if (filtered.length === 0) {
       grid.innerHTML = `
-        <div class="schedule-empty">
-          <div class="schedule-empty-icon">📅</div>
-          <h3>No Assignments</h3>
-          <p>${currentFilter === "all" ? "Create your first assignment" : `No ${currentFilter} assignments`}</p>
-        </div>`;
+      <div class="schedule-empty">
+        <div class="schedule-empty-icon">📅</div>
+        <h3>No Assignments</h3>
+        <p>${currentFilter === "all" ? "Create your first assignment" : `No ${currentFilter} assignments`}</p>
+      </div>`;
       return;
     }
 
     grid.innerHTML = filtered
       .map(
         (a) => `
-      <div class="assignment-card">
-        <div class="assignment-card-header">
-          <div class="assignment-route">📍 ${a.route_name}</div>
+    <div class="assignment-card ${a.is_paused ? "paused" : ""}">
+      <div class="assignment-card-header">
+        <div class="assignment-route">📍 ${a.route_name}</div>
+        <div style="display:flex;gap:6px;align-items:center">
+          ${a.is_paused ? '<span class="paused-badge">⏸ Paused</span>' : ""}
           <span class="assignment-shift shift-${a.shift}">${a.shift}</span>
         </div>
-        <div class="assignment-details">
-          <div class="assignment-detail">
-            <div class="assignment-detail-icon bus">🚌</div>
-            <div>
-              <div class="assignment-detail-label">Bus</div>
-              <div class="assignment-detail-value">${a.bus_number}</div>
-            </div>
-          </div>
-          <div class="assignment-detail">
-            <div class="assignment-detail-icon driver">👤</div>
-            <div>
-              <div class="assignment-detail-label">Driver</div>
-              <div class="assignment-detail-value">${a.driver_name}</div>
-            </div>
-          </div>
-          <div class="assignment-detail">
-            <div class="assignment-detail-icon date">📅</div>
-            <div>
-              <div class="assignment-detail-label">Period</div>
-              <div class="assignment-detail-value">
-                ${formatDate(a.effective_date)}${a.end_date ? ` → ${formatDate(a.end_date)}` : " → Ongoing"}
-              </div>
-            </div>
+      </div>
+      <div class="assignment-details">
+        <div class="assignment-detail">
+          <div class="assignment-detail-icon bus">🚌</div>
+          <div>
+            <div class="assignment-detail-label">Bus</div>
+            <div class="assignment-detail-value">${a.bus_number}</div>
           </div>
         </div>
-        <div class="assignment-card-footer">
-          <button class="btn btn-danger btn-sm" onclick="deleteAssignment('${a.id}', '${esc(a.route_name)}')">Delete</button>
+        <div class="assignment-detail">
+          <div class="assignment-detail-icon driver">👤</div>
+          <div>
+            <div class="assignment-detail-label">Driver</div>
+            <div class="assignment-detail-value">${a.driver_name}</div>
+          </div>
+        </div>
+        <div class="assignment-detail">
+          <div class="assignment-detail-icon date">📅</div>
+          <div>
+            <div class="assignment-detail-label">Period</div>
+            <div class="assignment-detail-value">
+              ${formatDate(a.effective_date)}${a.end_date ? ` → ${formatDate(a.end_date)}` : " → Ongoing"}
+            </div>
+          </div>
         </div>
       </div>
-    `,
+      <div class="assignment-card-footer" style="display:flex;gap:8px">
+        <button class="btn ${a.is_paused ? "btn-success" : "btn-secondary"} btn-sm" 
+                onclick="togglePause('${a.id}', ${a.is_paused})">
+          ${a.is_paused ? "▶ Resume" : "⏸ Pause"}
+        </button>
+        <button class="btn btn-danger btn-sm" onclick="deleteAssignment('${a.id}', '${esc(a.route_name)}')">Delete</button>
+      </div>
+    </div>
+  `,
       )
       .join("");
   }
@@ -213,6 +226,20 @@
     deletingId = id;
     el("deleteAssignmentName").textContent = name;
     el("deleteModal").classList.add("show");
+  };
+
+  window.togglePause = async function (id, isPaused) {
+    const action = isPaused ? "resume" : "pause";
+    if (!confirm(`Are you sure you want to ${action} this assignment?`)) return;
+
+    try {
+      await apiFetch(`/route-assignments/${id}/toggle-pause`, {
+        method: "PUT",
+      });
+      await loadAssignments();
+    } catch (err) {
+      alert(err.message || `Failed to ${action} assignment`);
+    }
   };
 
   async function confirmDelete() {

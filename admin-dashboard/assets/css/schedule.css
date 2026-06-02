@@ -178,3 +178,35 @@
     align-items: flex-start;
   }
 }
+/* Paused Assignment */
+.assignment-card.paused {
+  opacity: 0.7;
+  border-color: var(--warning);
+}
+
+.assignment-card.paused .assignment-route {
+  text-decoration: line-through;
+}
+
+.paused-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  background: var(--warning-light);
+  color: var(--warning);
+}
+
+/* Resume button styling */
+.btn-success {
+  background: var(--success);
+  color: white;
+  border: none;
+}
+
+.btn-success:hover {
+  background: #059669;
+}

@@ -131,24 +131,26 @@ router.get(
       // Step 2: Get today's route assignment
       const assignmentResult = await db.query(
         `SELECT 
-          ra.id           AS assignment_id,
-          ra.route_id,
-          ra.bus_id,
-          ra.shift,
-          ra.effective_date,
-          r.name          AS route_name,
-          r.total_distance_km,
-          r.estimated_duration_min,
-          b.registration_number AS bus_number,
-          b.capacity
-         FROM route_assignments ra
-         JOIN routes r ON r.rid = ra.route_id
-         JOIN buses  b ON b.bid = ra.bus_id
-         WHERE ra.driver_id = $1
-           AND ra.effective_date <= $2
-           AND (ra.end_date IS NULL OR ra.end_date >= $2)
-         ORDER BY ra.effective_date DESC
-         LIMIT 1`,
+    ra.id           AS assignment_id,
+    ra.route_id,
+    ra.bus_id,
+    ra.shift,
+    ra.effective_date,
+    r.name          AS route_name,
+    r.total_distance_km,
+    r.estimated_duration_min,
+    ST_AsText(r.route_path) AS route_path,
+    b.registration_number AS bus_number,
+    b.capacity
+   FROM route_assignments ra
+   JOIN routes r ON r.rid = ra.route_id
+   JOIN buses  b ON b.bid = ra.bus_id
+   WHERE ra.driver_id = $1
+     AND ra.effective_date <= $2
+     AND (ra.end_date IS NULL OR ra.end_date >= $2)
+     AND COALESCE(ra.is_paused, false) = false
+   ORDER BY ra.effective_date DESC
+   LIMIT 1`,
         [driverId, today],
       );
 

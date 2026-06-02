@@ -46,17 +46,18 @@ router.get(
   async (req, res) => {
     try {
       let query = `
-      SELECT ra.*,
-             r.name as route_name,
-             b.registration_number as bus_number,
-             u.full_name as driver_name,
-             d.id as driver_table_id
-      FROM route_assignments ra
-      JOIN routes r ON ra.route_id = r.rid
-      JOIN buses b ON ra.bus_id = b.bid
-      JOIN drivers d ON ra.driver_id = d.id
-      JOIN users u ON d.userid = u.userid
-    `;
+  SELECT ra.*,
+         COALESCE(ra.is_paused, false) AS is_paused,
+         r.name as route_name,
+         b.registration_number as bus_number,
+         u.full_name as driver_name,
+         d.id as driver_table_id
+  FROM route_assignments ra
+  JOIN routes r ON ra.route_id = r.rid
+  JOIN buses b ON ra.bus_id = b.bid
+  JOIN drivers d ON ra.driver_id = d.id
+  JOIN users u ON d.userid = u.userid
+`;
       const params = [];
 
       // Driver sees only own assignments
@@ -125,4 +126,36 @@ router.delete("/:id", requireAuth, requireRole(["admin"]), async (req, res) => {
   }
 });
 
+/**
+ * PUT /api/route-assignments/:id/toggle-pause
+ * Pause or resume an assignment
+ */
+router.put(
+  "/:id/toggle-pause",
+  requireAuth,
+  requireRole(["admin"]),
+  async (req, res) => {
+    try {
+      const { rows } = await db.query(
+        `UPDATE route_assignments
+         SET is_paused = NOT COALESCE(is_paused, false)
+         WHERE id = $1
+         RETURNING id, is_paused`,
+        [req.params.id],
+      );
+
+      if (rows.length === 0) {
+        return res.status(404).json({ error: "Assignment not found" });
+      }
+
+      res.json({
+        assignment: rows[0],
+        message: rows[0].is_paused ? "Assignment paused" : "Assignment resumed",
+      });
+    } catch (err) {
+      console.error("Toggle pause error:", err);
+      res.status(500).json({ error: "Failed to toggle pause" });
+    }
+  },
+);
 module.exports = router;
