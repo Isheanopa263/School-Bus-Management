@@ -832,8 +832,13 @@ const RouteView = (() => {
       );
     } catch (err) {
       alert(err.message || "Failed to update attendance");
-      // Revert checkbox state
-      event.target.checked = !isChecked;
+      // Revert checkbox by reloading attendance state
+      await loadAttendance();
+      renderStops(
+        document.getElementById("stops-list"),
+        document.getElementById("stops-count"),
+        routeStops,
+      );
     }
   }
 
