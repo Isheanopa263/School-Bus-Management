@@ -79,11 +79,14 @@ const LoginScreen = (() => {
 
   function setLoading(loading) {
     const btn = document.getElementById("login-btn");
+    if (!btn) return;
+
     const texts = btn.querySelectorAll(".btn-text");
     const loader = btn.querySelector(".btn-loader");
+
     btn.disabled = loading;
-    texts.forEach((el) => el.classList.toggle("hidden", loading));
-    loader.classList.toggle("hidden", !loading);
+    if (texts) texts.forEach((el) => el.classList.toggle("hidden", loading));
+    if (loader) loader.classList.toggle("hidden", !loading);
   }
 
   function showFieldError(id, msg) {
