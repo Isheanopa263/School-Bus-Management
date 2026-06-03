@@ -1,219 +1,258 @@
 /**
  * Route View Screen Controller
- * Handles sidebar, tabs, route display, trip start/end, navigation
+ * Driver app main screen - sidebar, tabs, trip management, navigation
  */
 const RouteView = (() => {
-  let activeTripId = null;
-  let tripStartTime = null;
-  let timerInterval = null;
-  let routeStops = [];
-  let attendanceMap = {};
-  let routeAssignment = null; // ← store full assignment object
-  let currentTab = "dashboard";
-  let mapInitialized = false;
-  let currentSOSType = null;
+  // ════════════════════════════════════════════════════════════════════════
+  // CONSTANTS
+  // ════════════════════════════════════════════════════════════════════════
 
-  // GPS → Navigation bridge
-  function onGPSUpdate(pos) {
-    Navigation.updateDriverPosition(pos.latitude, pos.longitude, pos.heading);
-    const gpsEl = document.getElementById("trip-detail-gps");
-    if (gpsEl) gpsEl.textContent = `Active (${pos.accuracy}m)`;
+  const TAB_NAMES = ["dashboard", "map", "stops", "trip", "sos"];
+  const MAP_INIT_DELAY = 100;
+  const TIMER_INTERVAL = 1000;
+  const STORAGE_KEY = "active_trip";
+
+  const SOS_TYPES = {
+    "sos-emergency-btn": { type: "sos", icon: "🚨", name: "Emergency SOS" },
+    "sos-breakdown-btn": { type: "breakdown", icon: "🔧", name: "Breakdown" },
+    "sos-deviation-btn": {
+      type: "route_deviation",
+      icon: "↗️",
+      name: "Route Deviation",
+    },
+    "sos-other-btn": { type: "harsh_braking", icon: "⚠️", name: "Other Issue" },
+  };
+
+  const SOS_ICONS = {
+    sos: "🚨",
+    breakdown: "🔧",
+    route_deviation: "↗️",
+    harsh_braking: "⚠️",
+    overspeeding: "💨",
+  };
+
+  // ════════════════════════════════════════════════════════════════════════
+  // STATE
+  // ════════════════════════════════════════════════════════════════════════
+
+  const state = {
+    activeTripId: null,
+    tripStartTime: null,
+    timerInterval: null,
+    routeStops: [],
+    routeAssignment: null,
+    originalStops: [],
+    originalAssignment: null,
+    attendanceMap: {},
+    currentTab: "dashboard",
+    mapInitialized: false,
+    currentSOSType: null,
+  };
+
+  // ════════════════════════════════════════════════════════════════════════
+  // DOM HELPERS
+  // ════════════════════════════════════════════════════════════════════════
+
+  const $ = (id) => document.getElementById(id);
+  const $$ = (selector) => document.querySelectorAll(selector);
+
+  function setText(id, text) {
+    const el = $(id);
+    if (el) el.textContent = text;
   }
 
-  // ── Init ──────────────────────────────────────────────────────────────
-  async function init() {
-    const driver = JSON.parse(sessionStorage.getItem("driver_info") || "{}");
+  function toggleClass(id, className, add) {
+    const el = $(id);
+    if (el) el.classList.toggle(className, add);
+  }
 
-    setTextContent("sidebar-driver-name", driver.full_name || "Driver");
-    setTextContent(
+  function show(id) {
+    toggleClass(id, "hidden", false);
+  }
+  function hide(id) {
+    toggleClass(id, "hidden", true);
+  }
+
+  function on(id, event, handler) {
+    const el = $(id);
+    if (el) el.addEventListener(event, handler);
+  }
+
+  // ════════════════════════════════════════════════════════════════════════
+  // INITIALIZATION
+  // ════════════════════════════════════════════════════════════════════════
+
+  async function init() {
+    setupDriverInfo();
+    setupSidebar();
+    setupTabs();
+    setupLogout();
+    setupTripButtons();
+    setupTripModals();
+    setupSOSButtons();
+    setupSOSModal();
+    setupSeverityButtons();
+
+    await loadTodayRoute();
+  }
+
+  function setupDriverInfo() {
+    const driver = JSON.parse(sessionStorage.getItem("driver_info") || "{}");
+    const initial = (driver.full_name || "D").charAt(0).toUpperCase();
+
+    setText("sidebar-driver-name", driver.full_name || "Driver");
+    setText(
       "sidebar-bus-number",
       driver.bus_number ? `Bus: ${driver.bus_number}` : "No bus",
     );
-    setTextContent("top-driver-name", driver.full_name || "Driver");
+    setText("top-driver-name", driver.full_name || "Driver");
+    setText("sidebar-avatar", initial);
+  }
 
-    const avatar = document.getElementById("sidebar-avatar");
-    if (avatar)
-      avatar.textContent = (driver.full_name || "D").charAt(0).toUpperCase();
+  function setupSidebar() {
+    on("sidebar-collapse", "click", () =>
+      $("sidebar").classList.toggle("collapsed"),
+    );
 
-    // Sidebar
-    document
-      .getElementById("sidebar-collapse")
-      .addEventListener("click", toggleSidebar);
-    document
-      .getElementById("menu-toggle")
-      .addEventListener("click", openMobileSidebar);
-    document
-      .getElementById("sidebar-overlay")
-      .addEventListener("click", closeMobileSidebar);
-
-    // Tabs
-    document.querySelectorAll(".sidebar-link[data-tab]").forEach((link) => {
-      link.addEventListener("click", () => switchTab(link.dataset.tab));
+    on("menu-toggle", "click", () => {
+      $("sidebar").classList.add("open");
+      $("sidebar-overlay").classList.add("show");
     });
 
-    // Logout
-    document.getElementById("logout-btn").addEventListener("click", () => {
-      if (activeTripId) {
+    on("sidebar-overlay", "click", closeMobileSidebar);
+  }
+
+  function closeMobileSidebar() {
+    $("sidebar")?.classList.remove("open");
+    $("sidebar-overlay")?.classList.remove("show");
+  }
+
+  function setupTabs() {
+    $$(".sidebar-link[data-tab]").forEach((link) => {
+      link.addEventListener("click", () => switchTab(link.dataset.tab));
+    });
+  }
+
+  function setupLogout() {
+    on("logout-btn", "click", () => {
+      if (state.activeTripId) {
         alert("Please end the active trip before logging out.");
         return;
       }
       App.logout();
     });
+  }
 
-    // Trip buttons
-    document
-      .getElementById("start-trip-btn")
-      .addEventListener("click", openStartModal);
-    document
-      .getElementById("end-trip-btn")
-      .addEventListener("click", openEndModal);
-    document
-      .getElementById("start-trip-btn-alt")
-      .addEventListener("click", openStartModal);
-    document
-      .getElementById("end-trip-btn-alt")
-      .addEventListener("click", openEndModal);
-    document
-      .getElementById("start-trip-btn-completed")
-      .addEventListener("click", openStartModal);
+  function setupTripButtons() {
+    [
+      "start-trip-btn",
+      "start-trip-btn-alt",
+      "start-trip-btn-completed",
+    ].forEach((id) => on(id, "click", openModal("start-trip-modal")));
 
-    // Modal: start trip
-    document
-      .getElementById("close-start-modal")
-      .addEventListener("click", closeStartModal);
-    document.querySelectorAll(".trip-type-btn").forEach((btn) => {
+    ["end-trip-btn", "end-trip-btn-alt"].forEach((id) =>
+      on(id, "click", openModal("end-trip-modal")),
+    );
+  }
+
+  function setupTripModals() {
+    on("close-start-modal", "click", closeModal("start-trip-modal"));
+    on("close-end-modal", "click", closeModal("end-trip-modal"));
+    on("cancel-end-btn", "click", closeModal("end-trip-modal"));
+    on("confirm-end-btn", "click", handleEndTrip);
+
+    $$(".trip-type-btn").forEach((btn) => {
       btn.addEventListener("click", () => handleStartTrip(btn.dataset.type));
     });
 
-    // Modal: end trip
-    document
-      .getElementById("close-end-modal")
-      .addEventListener("click", closeEndModal);
-    document
-      .getElementById("cancel-end-btn")
-      .addEventListener("click", closeEndModal);
-    document
-      .getElementById("confirm-end-btn")
-      .addEventListener("click", handleEndTrip);
+    setupBackdropClose("start-trip-modal");
+    setupBackdropClose("end-trip-modal");
+  }
 
-    // Backdrop close
-    document
-      .getElementById("start-trip-modal")
-      .addEventListener("click", (e) => {
-        if (e.target === e.currentTarget) closeStartModal();
-      });
-    document.getElementById("end-trip-modal").addEventListener("click", (e) => {
-      if (e.target === e.currentTarget) closeEndModal();
+  function setupSOSButtons() {
+    Object.entries(SOS_TYPES).forEach(([btnId, sos]) => {
+      on(btnId, "click", () => openSOSModal(sos.type, sos.icon, sos.name));
     });
+  }
 
-    // SOS buttons
-    document
-      .getElementById("sos-emergency-btn")
-      .addEventListener("click", () =>
-        openSOSModal("sos", "🚨", "Emergency SOS"),
-      );
-    document
-      .getElementById("sos-breakdown-btn")
-      .addEventListener("click", () =>
-        openSOSModal("breakdown", "🔧", "Breakdown"),
-      );
-    document
-      .getElementById("sos-deviation-btn")
-      .addEventListener("click", () =>
-        openSOSModal("route_deviation", "↗️", "Route Deviation"),
-      );
-    document
-      .getElementById("sos-other-btn")
-      .addEventListener("click", () =>
-        openSOSModal("harsh_braking", "⚠️", "Other Issue"),
-      );
+  function setupSOSModal() {
+    on("close-sos-modal", "click", closeSOSModal);
+    on("cancel-sos-btn", "click", closeSOSModal);
+    on("send-sos-btn", "click", handleSendSOS);
+    on("sos-confirm-ok", "click", closeModal("sos-confirm-modal"));
 
-    // SOS modal
-    document
-      .getElementById("close-sos-modal")
-      .addEventListener("click", closeSOSModal);
-    document
-      .getElementById("cancel-sos-btn")
-      .addEventListener("click", closeSOSModal);
-    document
-      .getElementById("send-sos-btn")
-      .addEventListener("click", handleSendSOS);
-    document.getElementById("sos-confirm-ok").addEventListener("click", () => {
-      document.getElementById("sos-confirm-modal").classList.remove("show");
-    });
-    document.getElementById("sos-modal").addEventListener("click", (e) => {
-      if (e.target === e.currentTarget) closeSOSModal();
-    });
-    document
-      .getElementById("sos-confirm-modal")
-      .addEventListener("click", (e) => {
-        if (e.target === e.currentTarget)
-          e.currentTarget.classList.remove("show");
-      });
+    setupBackdropClose("sos-modal");
+    setupBackdropClose("sos-confirm-modal");
+  }
 
-    // Severity buttons
-    document.querySelectorAll(".severity-btn").forEach((btn) => {
+  function setupSeverityButtons() {
+    $$(".severity-btn").forEach((btn) => {
       btn.addEventListener("click", () => {
-        document
-          .querySelectorAll(".severity-btn")
-          .forEach((b) => b.classList.remove("active"));
+        $$(".severity-btn").forEach((b) => b.classList.remove("active"));
         btn.classList.add("active");
       });
     });
-
-    await loadTodayRoute();
   }
 
-  // ── Sidebar ───────────────────────────────────────────────────────────
-  function toggleSidebar() {
-    document.getElementById("sidebar").classList.toggle("collapsed");
+  // ════════════════════════════════════════════════════════════════════════
+  // MODAL HELPERS
+  // ════════════════════════════════════════════════════════════════════════
+
+  const openModal = (id) => () => $(id)?.classList.add("show");
+  const closeModal = (id) => () => $(id)?.classList.remove("show");
+
+  function setupBackdropClose(modalId) {
+    const modal = $(modalId);
+    if (!modal) return;
+    modal.addEventListener("click", (e) => {
+      if (e.target === e.currentTarget) modal.classList.remove("show");
+    });
   }
 
-  function openMobileSidebar() {
-    document.getElementById("sidebar").classList.add("open");
-    document.getElementById("sidebar-overlay").classList.add("show");
-  }
+  // ════════════════════════════════════════════════════════════════════════
+  // TAB SWITCHING
+  // ════════════════════════════════════════════════════════════════════════
 
-  function closeMobileSidebar() {
-    document.getElementById("sidebar").classList.remove("open");
-    document.getElementById("sidebar-overlay").classList.remove("show");
-  }
-
-  // ── Tab Switching ─────────────────────────────────────────────────────
   function switchTab(tab) {
-    currentTab = tab;
+    state.currentTab = tab;
 
-    document.querySelectorAll(".sidebar-link[data-tab]").forEach((link) => {
+    $$(".sidebar-link[data-tab]").forEach((link) => {
       link.classList.toggle("active", link.dataset.tab === tab);
     });
 
-    document.querySelectorAll(".tab-content").forEach((section) => {
+    $$(".tab-content").forEach((section) => {
       section.classList.toggle("active", section.id === `tab-${tab}`);
     });
 
-    if (tab === "map" && !mapInitialized && routeStops.length > 0) {
-      setTimeout(() => {
-        Navigation.initMap(routeStops, routeAssignment);
-        mapInitialized = true;
-        if (activeTripId) Navigation.startNavigation();
-      }, 100);
-    }
-
-    if (tab === "map" && mapInitialized) {
-      setTimeout(() => {
-        window.dispatchEvent(new Event("resize"));
-      }, 100);
-    }
-
-    if (tab === "sos") {
+    if (tab === "map") {
+      handleMapTabSwitch();
+    } else if (tab === "sos") {
       loadSOSHistory();
     }
 
     closeMobileSidebar();
   }
 
-  // ── Helpers For Reversing Route (For Drop Trips) ──────────────────────
-  function reverseRouteData(stops) {
+  function handleMapTabSwitch() {
+    if (!state.mapInitialized && state.routeStops.length > 0) {
+      setTimeout(() => {
+        Navigation.initMap(state.routeStops, state.routeAssignment);
+        state.mapInitialized = true;
+        if (state.activeTripId) Navigation.startNavigation();
+      }, MAP_INIT_DELAY);
+    } else if (state.mapInitialized) {
+      setTimeout(
+        () => window.dispatchEvent(new Event("resize")),
+        MAP_INIT_DELAY,
+      );
+    }
+  }
+
+  // ════════════════════════════════════════════════════════════════════════
+  // ROUTE DIRECTION (Reverse for Drop Trips)
+  // ════════════════════════════════════════════════════════════════════════
+
+  function reverseStops(stops) {
     if (!stops || stops.length === 0) return stops;
     return [...stops].reverse().map((stop, idx) => ({
       ...stop,
@@ -226,8 +265,11 @@ const RouteView = (() => {
     if (!wkt) return wkt;
     try {
       const content = wkt.match(/\((.*)\)/)[1];
-      const points = content.split(",").map((p) => p.trim());
-      const reversed = points.reverse().join(", ");
+      const reversed = content
+        .split(",")
+        .map((p) => p.trim())
+        .reverse()
+        .join(", ");
       return `LINESTRING(${reversed})`;
     } catch {
       return wkt;
@@ -235,130 +277,98 @@ const RouteView = (() => {
   }
 
   function applyRouteDirection(tripType) {
-    // Reset to original first
-    routeStops = [...originalStops];
-    routeAssignment = { ...originalAssignment };
+    state.routeStops = [...state.originalStops];
+    state.routeAssignment = { ...state.originalAssignment };
 
     if (tripType === "drop") {
-      routeStops = reverseRouteData(originalStops);
-      routeAssignment.route_path = reverseWKT(originalAssignment.route_path);
+      state.routeStops = reverseStops(state.originalStops);
+      state.routeAssignment.route_path = reverseWKT(
+        state.originalAssignment.route_path,
+      );
     }
   }
 
-  // Store originals to allow direction switching
-  let originalStops = [];
-  let originalAssignment = null;
+  // ════════════════════════════════════════════════════════════════════════
+  // LOAD & RENDER ROUTE
+  // ════════════════════════════════════════════════════════════════════════
 
-  // ── Load Route ────────────────────────────────────────────────────────
   async function loadTodayRoute() {
-    const summaryEl = document.getElementById("route-summary");
-    const stopsEl = document.getElementById("stops-list");
-    const countEl = document.getElementById("stops-count");
-    const statsEl = document.getElementById("quick-stats");
-
     try {
       const data = await DriverAPI.getTodayRoute();
 
-      // Store originals
-      originalStops = data.stops;
-      originalAssignment = data.assignment;
+      state.originalStops = data.stops;
+      state.originalAssignment = data.assignment;
+      state.routeStops = data.stops;
+      state.routeAssignment = data.assignment;
 
-      // Default to pickup direction
-      routeStops = data.stops;
-      routeAssignment = data.assignment;
-
-      // If there's an active drop trip, reverse the direction
-      if (
-        data.active_trip &&
-        data.active_trip.trip_type === "drop" &&
-        data.active_trip.status === "ongoing"
-      ) {
+      const trip = data.active_trip;
+      if (trip?.trip_type === "drop" && trip?.status === "ongoing") {
         applyRouteDirection("drop");
       }
 
-      renderSummary(summaryEl, data);
-      renderStops(stopsEl, countEl, routeStops);
-      renderQuickStats(statsEl, data);
+      renderRoute(data);
 
-      if (data.active_trip) {
-        if (data.active_trip.status === "ongoing") {
-          restoreActiveTrip(data.active_trip);
-        } else if (data.active_trip.status === "completed") {
-          setTripCompleted(data.active_trip);
-        }
+      if (trip?.status === "ongoing") {
+        await restoreActiveTrip(trip);
+      } else if (trip?.status === "completed") {
+        setTripCompleted(trip);
       }
     } catch (err) {
-      summaryEl.innerHTML = `
-        <div class="no-route">
-          <div class="no-route-icon">📋</div>
-          <h3>No Route Today</h3>
-          <p>${err.status === 404 ? "You have no route assigned for today." : "Failed to load route."}</p>
-        </div>`;
-      stopsEl.innerHTML = "";
-      countEl.textContent = "0";
-      statsEl.innerHTML = "";
-      document.getElementById("start-trip-btn").disabled = true;
-      document.getElementById("start-trip-btn-alt").disabled = true;
+      renderNoRouteState(err);
     }
   }
 
-  // ── Render Summary ────────────────────────────────────────────────────
-  function renderSummary(container, data) {
-    const { assignment } = data;
-    const shiftClass = `shift-${assignment.shift}`;
+  function renderRoute(data) {
+    renderSummary(data);
+    renderStopsList();
+    renderQuickStats(data);
+  }
 
-    container.innerHTML = `
+  function renderSummary(data) {
+    const a = data.assignment;
+    $("route-summary").innerHTML = `
       <div class="route-name-header">
-        📍 ${assignment.route_name}
-        <span class="shift-badge ${shiftClass}">${assignment.shift}</span>
+        📍 ${a.route_name}
+        <span class="shift-badge shift-${a.shift}">${a.shift}</span>
       </div>
       <div class="route-info-grid">
-        <div class="route-info-item">
-          <span class="info-label">Bus</span>
-          <span class="info-value">🚌 ${assignment.bus_number}</span>
-        </div>
-        <div class="route-info-item">
-          <span class="info-label">Students</span>
-          <span class="info-value">👥 ${data.total_students}</span>
-        </div>
-        <div class="route-info-item">
-          <span class="info-label">Distance</span>
-          <span class="info-value">${assignment.total_distance_km ? `${assignment.total_distance_km} km` : "N/A"}</span>
-        </div>
-        <div class="route-info-item">
-          <span class="info-label">Est. Duration</span>
-          <span class="info-value">${assignment.estimated_duration_min ? `${assignment.estimated_duration_min} min` : "N/A"}</span>
-        </div>
+        ${infoItem("Bus", `🚌 ${a.bus_number}`)}
+        ${infoItem("Students", `👥 ${data.total_students}`)}
+        ${infoItem("Distance", a.total_distance_km ? `${a.total_distance_km} km` : "N/A")}
+        ${infoItem("Est. Duration", a.estimated_duration_min ? `${a.estimated_duration_min} min` : "N/A")}
       </div>`;
   }
 
-  // ── Quick Stats ───────────────────────────────────────────────────────
-  function renderQuickStats(container, data) {
-    container.innerHTML = `
-      <div class="stat-card">
-        <div class="stat-card-icon">📍</div>
-        <div class="stat-card-value">${data.total_stops}</div>
-        <div class="stat-card-label">Total Stops</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-card-icon">👥</div>
-        <div class="stat-card-value">${data.total_students}</div>
-        <div class="stat-card-label">Students</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-card-icon">🚌</div>
-        <div class="stat-card-value">${data.assignment.bus_number}</div>
-        <div class="stat-card-label">Bus</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-card-icon">⏱️</div>
-        <div class="stat-card-value">${data.assignment.estimated_duration_min || "-"}</div>
-        <div class="stat-card-label">Minutes Est.</div>
+  function infoItem(label, value) {
+    return `
+      <div class="route-info-item">
+        <span class="info-label">${label}</span>
+        <span class="info-value">${value}</span>
       </div>`;
   }
 
-  // ── Render Stops ──────────────────────────────────────────────────────
-  function renderStops(container, countEl, stops) {
+  function renderQuickStats(data) {
+    $("quick-stats").innerHTML = `
+      ${statCard("📍", data.total_stops, "Total Stops")}
+      ${statCard("👥", data.total_students, "Students")}
+      ${statCard("🚌", data.assignment.bus_number, "Bus")}
+      ${statCard("⏱️", data.assignment.estimated_duration_min || "-", "Minutes Est.")}`;
+  }
+
+  function statCard(icon, value, label) {
+    return `
+      <div class="stat-card">
+        <div class="stat-card-icon">${icon}</div>
+        <div class="stat-card-value">${value}</div>
+        <div class="stat-card-label">${label}</div>
+      </div>`;
+  }
+
+  function renderStopsList() {
+    const container = $("stops-list");
+    const countEl = $("stops-count");
+    const stops = state.routeStops;
+
     countEl.textContent = stops.length;
 
     if (stops.length === 0) {
@@ -366,9 +376,11 @@ const RouteView = (() => {
       return;
     }
 
-    container.innerHTML = stops
-      .map(
-        (stop) => `
+    container.innerHTML = stops.map(renderStopCard).join("");
+  }
+
+  function renderStopCard(stop) {
+    return `
       <div class="stop-card" id="stop-${stop.id}">
         <div class="stop-header" onclick="RouteView.toggleStop('${stop.id}')">
           <div class="stop-seq">${stop.sequence_number}</div>
@@ -388,72 +400,169 @@ const RouteView = (() => {
             ${renderStudents(stop.students, stop.id)}
           </div>
         </div>
-      </div>
-    `,
-      )
-      .join("");
+      </div>`;
   }
 
   function renderStudents(students, stopId) {
     if (students.length === 0) {
       return `<div class="no-students">No students at this stop</div>`;
     }
-
-    return students
-      .map((s) => {
-        const isMarked = !!attendanceMap[s.sid];
-        const tripType = activeTripId ? getCurrentTripType() : "pickup";
-
-        return `
-      <div class="student-item">
-        ${
-          activeTripId
-            ? `
-          <label class="attendance-checkbox-wrapper">
-            <input type="checkbox" 
-                   class="attendance-checkbox" 
-                   ${isMarked ? "checked" : ""}
-                   onchange="RouteView.toggleAttendance('${s.sid}', '${stopId}', '${tripType}', this.checked)" />
-            <span class="checkmark"></span>
-          </label>
-        `
-            : ""
-        }
-        <div class="student-avatar">${s.full_name.charAt(0).toUpperCase()}</div>
-        <div class="student-info">
-          <div class="student-name">${s.full_name}</div>
-          <div class="student-roll">${s.roll ? `Roll: ${s.roll}` : "No roll number"}</div>
-          ${isMarked ? `<div class="attendance-time">✓ ${tripType === "pickup" ? "Picked up" : "Dropped off"} at ${new Date(attendanceMap[s.sid].timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</div>` : ""}
-        </div>
-      </div>
-    `;
-      })
-      .join("");
+    return students.map((s) => renderStudentItem(s, stopId)).join("");
   }
 
-  // ── Trip State ────────────────────────────────────────────────────────
-  function setTripActive(trip) {
-    activeTripId = trip.id;
-    tripStartTime = new Date(trip.start_time);
-    const tripType =
-      trip.trip_type.charAt(0).toUpperCase() + trip.trip_type.slice(1);
+  function renderStudentItem(student, stopId) {
+    const marked = !!state.attendanceMap[student.sid];
+    const tripType = state.activeTripId ? getCurrentTripType() : "pickup";
+    const checkbox = state.activeTripId
+      ? renderAttendanceCheckbox(student.sid, stopId, tripType, marked)
+      : "";
+    const markedInfo = marked ? renderMarkedInfo(student.sid, tripType) : "";
 
-    document.getElementById("trip-idle").classList.add("hidden");
-    document.getElementById("trip-completed").classList.add("hidden");
-    document.getElementById("trip-active").classList.remove("hidden");
-    document.getElementById("trip-type-label").textContent = tripType;
+    return `
+      <div class="student-item">
+        ${checkbox}
+        <div class="student-avatar">${student.full_name.charAt(0).toUpperCase()}</div>
+        <div class="student-info">
+          <div class="student-name">${student.full_name}</div>
+          <div class="student-roll">${student.roll ? `Roll: ${student.roll}` : "No roll number"}</div>
+          ${markedInfo}
+        </div>
+      </div>`;
+  }
 
-    document.getElementById("trip-detail-idle").classList.add("hidden");
-    document.getElementById("trip-detail-active").classList.remove("hidden");
-    document.getElementById("trip-detail-type").textContent = tripType;
+  function renderAttendanceCheckbox(sid, stopId, tripType, marked) {
+    return `
+      <label class="attendance-checkbox-wrapper">
+        <input type="checkbox" 
+               class="attendance-checkbox" 
+               ${marked ? "checked" : ""}
+               onchange="RouteView.toggleAttendance('${sid}', '${stopId}', '${tripType}', this.checked)" />
+        <span class="checkmark"></span>
+      </label>`;
+  }
 
-    const badge = document.getElementById("trip-badge");
-    if (badge) badge.classList.remove("hidden");
+  function renderMarkedInfo(sid, tripType) {
+    const time = new Date(
+      state.attendanceMap[sid].timestamp,
+    ).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    const action = tripType === "pickup" ? "Picked up" : "Dropped off";
+    return `<div class="attendance-time">✓ ${action} at ${time}</div>`;
+  }
 
+  function renderNoRouteState(err) {
+    const message =
+      err.status === 404
+        ? "You have no route assigned for today."
+        : "Failed to load route.";
+
+    $("route-summary").innerHTML = `
+      <div class="no-route">
+        <div class="no-route-icon">📋</div>
+        <h3>No Route Today</h3>
+        <p>${message}</p>
+      </div>`;
+    $("stops-list").innerHTML = "";
+    $("stops-count").textContent = "0";
+    $("quick-stats").innerHTML = "";
+    $("start-trip-btn").disabled = true;
+    $("start-trip-btn-alt").disabled = true;
+  }
+
+  // ════════════════════════════════════════════════════════════════════════
+  // TRIP STATE MACHINE
+  // ════════════════════════════════════════════════════════════════════════
+
+  function setTripState(stateName, trip = null) {
+    // Hide all states first
+    hide("trip-idle");
+    hide("trip-active");
+    hide("trip-completed");
+    hide("trip-detail-idle");
+    hide("trip-detail-active");
+
+    // Show the requested state
+    switch (stateName) {
+      case "idle":
+        showIdleState();
+        break;
+      case "active":
+        showActiveState(trip);
+        break;
+      case "completed":
+        showCompletedState(trip);
+        break;
+    }
+  }
+
+  function showIdleState() {
+    show("trip-idle");
+    show("trip-detail-idle");
+    hide("trip-badge");
+    $("start-trip-btn").disabled = false;
+    $("start-trip-btn-alt").disabled = false;
+  }
+
+  function showActiveState(trip) {
+    const tripType = capitalize(trip.trip_type);
+    show("trip-active");
+    show("trip-detail-active");
+    show("trip-badge");
+    setText("trip-type-label", tripType);
+    setText("trip-detail-type", tripType);
     startTimer();
+  }
 
+  function showCompletedState(trip) {
+    show("trip-completed");
+    show("trip-detail-idle");
+    hide("trip-badge");
+
+    const tripType = trip.trip_type ? capitalize(trip.trip_type) : "Trip";
+    const endTime = trip.end_time
+      ? new Date(trip.end_time).toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        })
+      : "Completed";
+
+    setText("completed-trip-type", tripType);
+    setText("completed-trip-time", endTime);
+  }
+
+  function setTripActive(trip) {
+    state.activeTripId = trip.id;
+    state.tripStartTime = new Date(trip.start_time);
+    setTripState("active", trip);
+    saveTripToSession(trip);
+  }
+
+  function setTripIdle() {
+    clearTripState();
+    setTripState("idle");
+    sessionStorage.removeItem(STORAGE_KEY);
+  }
+
+  function setTripCompleted(trip) {
+    clearTripState();
+    setTripState("completed", trip);
+    $("start-trip-btn").disabled = false;
+    $("start-trip-btn-alt").disabled = false;
+    sessionStorage.removeItem(STORAGE_KEY);
+  }
+
+  function clearTripState() {
+    state.activeTripId = null;
+    state.tripStartTime = null;
+    state.attendanceMap = {};
+    stopTimer();
+    GPS.stop();
+    GPS.offPosition(onGPSUpdate);
+    Navigation.stopNavigation();
+  }
+
+  function saveTripToSession(trip) {
     sessionStorage.setItem(
-      "active_trip",
+      STORAGE_KEY,
       JSON.stringify({
         id: trip.id,
         trip_type: trip.trip_type,
@@ -462,276 +571,262 @@ const RouteView = (() => {
     );
   }
 
-  function setTripIdle() {
-    activeTripId = null;
-    tripStartTime = null;
-    attendanceMap = {};
-    stopTimer();
-    GPS.stop();
-    GPS.offPosition(onGPSUpdate);
-    Navigation.stopNavigation();
-
-    document.getElementById("trip-active").classList.add("hidden");
-    document.getElementById("trip-completed").classList.add("hidden");
-    document.getElementById("trip-idle").classList.remove("hidden");
-
-    document.getElementById("trip-detail-active").classList.add("hidden");
-    document.getElementById("trip-detail-idle").classList.remove("hidden");
-
-    const badge = document.getElementById("trip-badge");
-    if (badge) badge.classList.add("hidden");
-
-    document.getElementById("start-trip-btn").disabled = false;
-    document.getElementById("start-trip-btn-alt").disabled = false;
-
-    sessionStorage.removeItem("active_trip");
-  }
-
-  function restoreActiveTrip(trip) {
+  async function restoreActiveTrip(trip) {
     setTripActive(trip);
     GPS.start(trip.id);
     GPS.onPosition(onGPSUpdate);
-    if (mapInitialized) Navigation.startNavigation();
-    loadAttendance().then(() => {
-      renderStops(
-        document.getElementById("stops-list"),
-        document.getElementById("stops-count"),
-        routeStops,
-      );
-    });
+    if (state.mapInitialized) Navigation.startNavigation();
+    await loadAttendance();
+    renderStopsList();
   }
 
-  // ── Timer ─────────────────────────────────────────────────────────────
+  // ════════════════════════════════════════════════════════════════════════
+  // TIMER
+  // ════════════════════════════════════════════════════════════════════════
+
   function startTimer() {
     stopTimer();
-    timerInterval = setInterval(updateTimer, 1000);
+    state.timerInterval = setInterval(updateTimer, TIMER_INTERVAL);
     updateTimer();
   }
 
   function stopTimer() {
-    if (timerInterval) {
-      clearInterval(timerInterval);
-      timerInterval = null;
+    if (state.timerInterval) {
+      clearInterval(state.timerInterval);
+      state.timerInterval = null;
     }
   }
 
   function updateTimer() {
-    if (!tripStartTime) return;
-    const elapsed = Math.floor((Date.now() - tripStartTime.getTime()) / 1000);
-    const h = String(Math.floor(elapsed / 3600)).padStart(2, "0");
-    const m = String(Math.floor((elapsed % 3600) / 60)).padStart(2, "0");
-    const s = String(elapsed % 60).padStart(2, "0");
-    const time = `${h}:${m}:${s}`;
-
-    setTextContent("trip-timer", time);
-    setTextContent("trip-detail-timer", time);
+    if (!state.tripStartTime) return;
+    const elapsed = Math.floor(
+      (Date.now() - state.tripStartTime.getTime()) / 1000,
+    );
+    const time = formatDuration(elapsed);
+    setText("trip-timer", time);
+    setText("trip-detail-timer", time);
   }
 
-  // ── Modals ────────────────────────────────────────────────────────────
-  function openStartModal() {
-    document.getElementById("start-trip-modal").classList.add("show");
-  }
-  function closeStartModal() {
-    document.getElementById("start-trip-modal").classList.remove("show");
-  }
-  function openEndModal() {
-    document.getElementById("end-trip-modal").classList.add("show");
-  }
-  function closeEndModal() {
-    document.getElementById("end-trip-modal").classList.remove("show");
+  function formatDuration(seconds) {
+    const h = String(Math.floor(seconds / 3600)).padStart(2, "0");
+    const m = String(Math.floor((seconds % 3600) / 60)).padStart(2, "0");
+    const s = String(seconds % 60).padStart(2, "0");
+    return `${h}:${m}:${s}`;
   }
 
-  // ── Handlers ──────────────────────────────────────────────────────────
+  // ════════════════════════════════════════════════════════════════════════
+  // TRIP HANDLERS
+  // ════════════════════════════════════════════════════════════════════════
+
   async function handleStartTrip(tripType) {
-    closeStartModal();
-    document.getElementById("start-trip-btn").disabled = true;
-    document.getElementById("start-trip-btn-alt").disabled = true;
+    closeModal("start-trip-modal")();
+    $("start-trip-btn").disabled = true;
+    $("start-trip-btn-alt").disabled = true;
 
     try {
-      const tripData = await DriverAPI.startTrip(tripType);
+      const { trip } = await DriverAPI.startTrip(tripType);
 
-      // Apply route direction based on trip type
       applyRouteDirection(tripType);
+      setTripActive(trip);
 
-      // Re-render stops with correct order
-      renderStops(
-        document.getElementById("stops-list"),
-        document.getElementById("stops-count"),
-        routeStops,
-      );
-
-      setTripActive(tripData.trip);
       await loadAttendance();
-      renderStops(
-        document.getElementById("stops-list"),
-        document.getElementById("stops-count"),
-        routeStops,
-      );
-      GPS.start(tripData.trip.id);
+      renderStopsList();
+
+      GPS.start(trip.id);
       GPS.onPosition(onGPSUpdate);
 
-      // Init or re-init map with correct direction
-      if (mapInitialized) {
-        Navigation.initMap(routeStops, routeAssignment);
-      } else if (routeStops.length > 0) {
-        Navigation.initMap(routeStops, routeAssignment);
-        mapInitialized = true;
-      }
+      initOrReinitMap();
       Navigation.startNavigation();
-
       switchTab("map");
     } catch (err) {
-      const msg =
-        err.status === 409
-          ? "A trip is already ongoing"
-          : err.status === 404
-            ? "No route assignment found"
-            : err.status === 0
-              ? "No internet connection"
-              : "Failed to start trip.";
-      alert(msg);
-      document.getElementById("start-trip-btn").disabled = false;
-      document.getElementById("start-trip-btn-alt").disabled = false;
+      alert(getStartTripErrorMessage(err));
+      $("start-trip-btn").disabled = false;
+      $("start-trip-btn-alt").disabled = false;
     }
+  }
+
+  function initOrReinitMap() {
+    if (state.mapInitialized) {
+      Navigation.initMap(state.routeStops, state.routeAssignment);
+    } else if (state.routeStops.length > 0) {
+      Navigation.initMap(state.routeStops, state.routeAssignment);
+      state.mapInitialized = true;
+    }
+  }
+
+  function getStartTripErrorMessage(err) {
+    const messages = {
+      409: "A trip is already ongoing",
+      404: "No route assignment found",
+      0: "No internet connection",
+    };
+    return messages[err.status] || "Failed to start trip.";
   }
 
   async function handleEndTrip() {
-    if (!activeTripId) return;
+    if (!state.activeTripId) return;
 
-    const confirmBtn = document.getElementById("confirm-end-btn");
-    confirmBtn.disabled = true;
-    confirmBtn.textContent = "Ending...";
+    const btn = $("confirm-end-btn");
+    btn.disabled = true;
+    btn.textContent = "Ending...";
 
     try {
-      const result = await DriverAPI.endTrip(activeTripId);
-      closeEndModal();
-      setTripCompleted(result.trip);
+      const { trip } = await DriverAPI.endTrip(state.activeTripId);
+      closeModal("end-trip-modal")();
+      setTripCompleted(trip);
+    } catch (err) {
+      alert(getEndTripErrorMessage(err));
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "End Trip";
+    }
+  }
+
+  function getEndTripErrorMessage(err) {
+    if (err.status === 404) return "Trip not found";
+    if (err.status === 400) return err.message;
+    if (err.status === 0) return "No internet connection";
+    return "Failed to end trip.";
+  }
+
+  // ════════════════════════════════════════════════════════════════════════
+  // GPS BRIDGE
+  // ════════════════════════════════════════════════════════════════════════
+
+  function onGPSUpdate(pos) {
+    Navigation.updateDriverPosition(pos.latitude, pos.longitude, pos.heading);
+    setText("trip-detail-gps", `Active (${pos.accuracy}m)`);
+  }
+
+  // ════════════════════════════════════════════════════════════════════════
+  // ATTENDANCE
+  // ════════════════════════════════════════════════════════════════════════
+
+  async function loadAttendance() {
+    if (!state.activeTripId) {
+      state.attendanceMap = {};
+      return;
+    }
+    try {
+      const data = await DriverAPI.getTripAttendance(state.activeTripId);
+      state.attendanceMap = {};
+      data.attendance.forEach((r) => (state.attendanceMap[r.student_id] = r));
+    } catch (err) {
+      console.error("Load attendance error:", err);
+      state.attendanceMap = {};
+    }
+  }
+
+  function getCurrentTripType() {
+    try {
+      const stored = sessionStorage.getItem(STORAGE_KEY);
+      return stored ? JSON.parse(stored).trip_type || "pickup" : "pickup";
+    } catch {
+      return "pickup";
+    }
+  }
+
+  async function toggleAttendance(studentId, stopId, eventType, isChecked) {
+    if (!state.activeTripId) {
+      alert("No active trip");
+      return;
+    }
+
+    try {
+      if (isChecked) {
+        const { attendance } = await DriverAPI.markAttendance(
+          state.activeTripId,
+          studentId,
+          stopId,
+          eventType,
+        );
+        state.attendanceMap[studentId] = attendance;
+      } else {
+        const record = state.attendanceMap[studentId];
+        if (record) {
+          await DriverAPI.unmarkAttendance(record.id);
+          delete state.attendanceMap[studentId];
+        }
+      }
+      renderStopsList();
     } catch (err) {
       const msg =
-        err.status === 404
-          ? "Trip not found"
-          : err.status === 400
-            ? err.message
-            : err.status === 0
-              ? "No internet connection"
-              : "Failed to end trip.";
+        err.status === 403
+          ? "📍 You must be near the stop to mark attendance"
+          : err.message || "Failed to update attendance";
       alert(msg);
-    } finally {
-      confirmBtn.disabled = false;
-      confirmBtn.textContent = "End Trip";
+      await loadAttendance();
+      renderStopsList();
     }
   }
 
-  function setTripCompleted(trip) {
-    activeTripId = null;
-    tripStartTime = null;
-    attendanceMap = {};
-    stopTimer();
-    GPS.stop();
-    GPS.offPosition(onGPSUpdate);
+  // ════════════════════════════════════════════════════════════════════════
+  // SOS
+  // ════════════════════════════════════════════════════════════════════════
 
-    document.getElementById("trip-idle").classList.add("hidden");
-    document.getElementById("trip-active").classList.add("hidden");
-    document.getElementById("trip-completed").classList.remove("hidden");
-
-    document.getElementById("trip-detail-active").classList.add("hidden");
-    document.getElementById("trip-detail-idle").classList.remove("hidden");
-
-    document.getElementById("completed-trip-type").textContent = trip.trip_type
-      ? trip.trip_type.charAt(0).toUpperCase() + trip.trip_type.slice(1)
-      : "Trip";
-
-    document.getElementById("completed-trip-time").textContent = trip.end_time
-      ? new Date(trip.end_time).toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit",
-        })
-      : "Completed";
-
-    const badge = document.getElementById("trip-badge");
-    if (badge) badge.classList.add("hidden");
-
-    sessionStorage.removeItem("active_trip");
-  }
-
-  // ── Helpers ───────────────────────────────────────────────────────────
-  function toggleStop(stopId) {
-    const card = document.getElementById(`stop-${stopId}`);
-    if (card) card.classList.toggle("expanded");
-  }
-
-  function setTextContent(id, text) {
-    const el = document.getElementById(id);
-    if (el) el.textContent = text;
-  }
-
-  // ── SOS Functions ─────────────────────────────────────────────────────
   function openSOSModal(type, icon, name) {
-    currentSOSType = type;
-    document.getElementById("sos-type-icon").textContent = icon;
-    document.getElementById("sos-type-name").textContent = name;
-    document.getElementById("sos-description").value = "";
+    state.currentSOSType = type;
+    setText("sos-type-icon", icon);
+    setText("sos-type-name", name);
+    $("sos-description").value = "";
 
-    document
-      .querySelectorAll(".severity-btn")
-      .forEach((b) => b.classList.remove("active"));
-    document
-      .querySelector('.severity-btn[data-severity="high"]')
-      .classList.add("active");
+    $$(".severity-btn").forEach((b) => b.classList.remove("active"));
+    $('.severity-btn[data-severity="high"]')?.classList.add("active");
 
     const pos = GPS.getLastPosition();
-    const locText = document.getElementById("sos-location-text");
-    if (pos) {
-      locText.textContent = `${pos.latitude.toFixed(5)}, ${pos.longitude.toFixed(5)}`;
-    } else {
-      locText.textContent = "Location unavailable";
-    }
+    setText(
+      "sos-location-text",
+      pos
+        ? `${pos.latitude.toFixed(5)}, ${pos.longitude.toFixed(5)}`
+        : "Location unavailable",
+    );
 
-    document.getElementById("sos-modal").classList.add("show");
+    $("sos-modal").classList.add("show");
   }
 
   function closeSOSModal() {
-    document.getElementById("sos-modal").classList.remove("show");
-    currentSOSType = null;
+    $("sos-modal").classList.remove("show");
+    state.currentSOSType = null;
   }
 
   async function handleSendSOS() {
-    if (!currentSOSType) return;
+    if (!state.currentSOSType) return;
 
-    const sendBtn = document.getElementById("send-sos-btn");
-    sendBtn.disabled = true;
-    sendBtn.textContent = "Sending...";
-
-    const severity =
-      document.querySelector(".severity-btn.active")?.dataset.severity ||
-      "high";
-    const description = document.getElementById("sos-description").value.trim();
-    const pos = GPS.getLastPosition();
+    const btn = $("send-sos-btn");
+    btn.disabled = true;
+    btn.textContent = "Sending...";
 
     try {
+      const severity = $(".severity-btn.active")?.dataset.severity || "high";
+      const description = $("sos-description").value.trim();
+      const pos = GPS.getLastPosition();
+
       await DriverAPI.sendSOS(
-        currentSOSType,
+        state.currentSOSType,
         severity,
-        { description: description || `${currentSOSType} reported by driver` },
+        {
+          description:
+            description || `${state.currentSOSType} reported by driver`,
+        },
         pos?.latitude || null,
         pos?.longitude || null,
       );
 
       closeSOSModal();
-      document.getElementById("sos-confirm-modal").classList.add("show");
+      $("sos-confirm-modal").classList.add("show");
       loadSOSHistory();
     } catch (err) {
-      const msg =
-        err.status === 0 ? "No internet connection." : "Failed to send alert.";
-      alert(msg);
+      alert(
+        err.status === 0 ? "No internet connection." : "Failed to send alert.",
+      );
     } finally {
-      sendBtn.disabled = false;
-      sendBtn.textContent = "Send Alert";
+      btn.disabled = false;
+      btn.textContent = "Send Alert";
     }
   }
 
   async function loadSOSHistory() {
-    const container = document.getElementById("sos-history");
+    const container = $("sos-history");
     if (!container) return;
 
     try {
@@ -742,105 +837,46 @@ const RouteView = (() => {
         return;
       }
 
-      const iconMap = {
-        sos: "🚨",
-        breakdown: "🔧",
-        route_deviation: "↗️",
-        harsh_braking: "⚠️",
-        overspeeding: "💨",
-      };
-
-      container.innerHTML = data.events
-        .map(
-          (event) => `
-        <div class="sos-history-item">
-          <div class="sos-history-icon ${event.event_type}">
-            ${iconMap[event.event_type] || "⚠️"}
-          </div>
-          <div class="sos-history-info">
-            <div class="sos-history-type">${event.event_type.replace("_", " ")}</div>
-            <div class="sos-history-time">${new Date(event.occurred_at).toLocaleString()}</div>
-          </div>
-          <span class="sos-history-severity ${event.severity}">${event.severity}</span>
-        </div>
-      `,
-        )
-        .join("");
-    } catch (err) {
+      container.innerHTML = data.events.map(renderSOSHistoryItem).join("");
+    } catch {
       container.innerHTML = `<p class="text-muted">Failed to load history</p>`;
     }
   }
 
-  async function loadAttendance() {
-    if (!activeTripId) {
-      attendanceMap = {};
-      return;
-    }
-
-    try {
-      const data = await DriverAPI.getTripAttendance(activeTripId);
-      attendanceMap = {};
-      data.attendance.forEach((record) => {
-        attendanceMap[record.student_id] = record;
-      });
-    } catch (err) {
-      console.error("Load attendance error:", err);
-      attendanceMap = {};
-    }
+  function renderSOSHistoryItem(event) {
+    const icon = SOS_ICONS[event.event_type] || "⚠️";
+    const type = event.event_type.replace("_", " ");
+    const time = new Date(event.occurred_at).toLocaleString();
+    return `
+      <div class="sos-history-item">
+        <div class="sos-history-icon ${event.event_type}">${icon}</div>
+        <div class="sos-history-info">
+          <div class="sos-history-type">${type}</div>
+          <div class="sos-history-time">${time}</div>
+        </div>
+        <span class="sos-history-severity ${event.severity}">${event.severity}</span>
+      </div>`;
   }
 
-  function getCurrentTripType() {
-    const stored = sessionStorage.getItem("active_trip");
-    if (!stored) return "pickup";
-    try {
-      return JSON.parse(stored).trip_type || "pickup";
-    } catch {
-      return "pickup";
-    }
+  // ════════════════════════════════════════════════════════════════════════
+  // UTILITY
+  // ════════════════════════════════════════════════════════════════════════
+
+  function capitalize(str) {
+    return str ? str.charAt(0).toUpperCase() + str.slice(1) : "";
   }
 
-  async function toggleAttendance(studentId, stopId, eventType, isChecked) {
-    if (!activeTripId) {
-      alert("No active trip");
-      return;
-    }
-
-    try {
-      if (isChecked) {
-        // Mark attendance
-        const result = await DriverAPI.markAttendance(
-          activeTripId,
-          studentId,
-          stopId,
-          eventType,
-        );
-        attendanceMap[studentId] = result.attendance;
-      } else {
-        // Unmark attendance
-        const record = attendanceMap[studentId];
-        if (record) {
-          await DriverAPI.unmarkAttendance(record.id);
-          delete attendanceMap[studentId];
-        }
-      }
-
-      // Re-render stops to update UI
-      renderStops(
-        document.getElementById("stops-list"),
-        document.getElementById("stops-count"),
-        routeStops,
-      );
-    } catch (err) {
-      alert(err.message || "Failed to update attendance");
-      // Revert checkbox by reloading attendance state
-      await loadAttendance();
-      renderStops(
-        document.getElementById("stops-list"),
-        document.getElementById("stops-count"),
-        routeStops,
-      );
-    }
+  function toggleStop(stopId) {
+    $(`stop-${stopId}`)?.classList.toggle("expanded");
   }
 
-  return { init, toggleStop, toggleAttendance };
+  // ════════════════════════════════════════════════════════════════════════
+  // PUBLIC API
+  // ════════════════════════════════════════════════════════════════════════
+
+  return {
+    init,
+    toggleStop,
+    toggleAttendance,
+  };
 })();
