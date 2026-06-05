@@ -13,7 +13,7 @@ const GPS = (() => {
 
   const SEND_INTERVAL_MS = 5000;
   const MAX_ERRORS = 10;
-  const MIN_ACCURACY_M = 150;
+  const MIN_ACCURACY_M = 70;
 
   // ── Start Tracking ────────────────────────────────────────────────────
   function start(tripId) {

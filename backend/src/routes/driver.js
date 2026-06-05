@@ -966,4 +966,175 @@ router.get(
   },
 );
 
+/**
+ * POST /api/driver/stops/skip
+ * Mark a stop as skipped during active trip
+ */
+router.post(
+  "/stops/skip",
+  requireAuth,
+  requireRole(["driver"]),
+  async (req, res) => {
+    const userId = req.user.userid;
+    const { trip_id, stop_id, reason } = req.body;
+
+    if (!trip_id || !stop_id) {
+      return res.status(400).json({ error: "trip_id and stop_id required" });
+    }
+
+    try {
+      const driverResult = await db.query(
+        "SELECT id FROM drivers WHERE userid = $1",
+        [userId],
+      );
+
+      if (driverResult.rows.length === 0) {
+        return res.status(404).json({ error: "Driver not found" });
+      }
+
+      const driverId = driverResult.rows[0].id;
+
+      // Verify trip belongs to driver
+      const tripCheck = await db.query(
+        `SELECT t.id, t.status FROM trips t
+         JOIN route_assignments ra ON t.assignment_id = ra.id
+         WHERE t.id = $1 AND ra.driver_id = $2 AND t.status = 'ongoing'`,
+        [trip_id, driverId],
+      );
+
+      if (tripCheck.rows.length === 0) {
+        return res.status(404).json({ error: "Active trip not found" });
+      }
+
+      // Record as skipped visit
+      const { rows } = await db.query(
+        `INSERT INTO trip_stop_visits (trip_id, stop_id, arrived_at, notified_students_count)
+         VALUES ($1, $2, NOW(), -1)
+         ON CONFLICT (trip_id, stop_id) DO UPDATE
+         SET notified_students_count = -1
+         RETURNING *`,
+        [trip_id, stop_id],
+      );
+
+      // Create trip event for the skip
+      await db.query(
+        `INSERT INTO trip_events (trip_id, bus_id, event_type, severity, details, occurred_at)
+         VALUES ($1, 
+           (SELECT bus_id FROM route_assignments ra JOIN trips t ON t.assignment_id = ra.id WHERE t.id = $1),
+           'route_deviation', 'medium',
+           $2, NOW())`,
+        [
+          trip_id,
+          JSON.stringify({
+            type: "stop_skipped",
+            stop_id,
+            reason: reason || "Route diversion",
+          }),
+        ],
+      );
+
+      // Notify students at skipped stop
+      const students = await db.query(
+        `SELECT u.userid, u.fcm_token, u.full_name, s.name as stop_name
+         FROM students st
+         JOIN users u ON st.userid = u.userid
+         JOIN stops s ON s.id = $1
+         WHERE st.assigned_stop_id = $1
+           AND st.bus_request_status = 'approved'`,
+        [stop_id],
+      );
+
+      // Notify each student
+      for (const student of students.rows) {
+        await db.query(
+          `INSERT INTO notifications (user_id, trip_id, type, title, message)
+           VALUES ($1, $2, 'stop_skipped', '⚠️ Stop Skipped',
+                   $3)`,
+          [
+            student.userid,
+            trip_id,
+            `Your stop "${student.stop_name}" has been skipped due to: ${reason || "route diversion"}. Please contact admin.`,
+          ],
+        );
+
+        if (student.fcm_token) {
+          try {
+            const { sendToToken } = require("../services/fcm");
+            await sendToToken(
+              student.fcm_token,
+              "⚠️ Stop Skipped",
+              `Your stop "${student.stop_name}" has been skipped. Reason: ${reason || "Route diversion"}`,
+              { type: "stop_skipped", stop_id },
+            );
+          } catch (fcmErr) {
+            console.warn("FCM skip notification failed:", fcmErr.message);
+          }
+        }
+      }
+
+      // Notify admins
+      try {
+        const { notifyAdmins } = require("../services/notify");
+        const stopInfo = await db.query(
+          "SELECT name FROM stops WHERE id = $1",
+          [stop_id],
+        );
+        await notifyAdmins(
+          "⚠️ Stop Skipped",
+          `Driver skipped stop "${stopInfo.rows[0]?.name}". Reason: ${reason || "Route diversion"}`,
+          { type: "stop_skipped", trip_id, stop_id },
+        );
+      } catch (notifyErr) {
+        console.warn("Admin skip notification failed:", notifyErr.message);
+      }
+
+      res.json({
+        visit: rows[0],
+        message: "Stop marked as skipped",
+        students_notified: students.rows.length,
+      });
+    } catch (err) {
+      console.error("Skip stop error:", err);
+      res.status(500).json({ error: "Failed to skip stop" });
+    }
+  },
+);
+
+/**
+ * GET /api/driver/stops/status/:tripId
+ * Get visit status for all stops in a trip
+ */
+router.get(
+  "/stops/status/:tripId",
+  requireAuth,
+  requireRole(["driver"]),
+  async (req, res) => {
+    try {
+      const { rows } = await db.query(
+        `SELECT tsv.stop_id, tsv.arrived_at, tsv.notified_students_count,
+                s.name, s.sequence_number
+         FROM trip_stop_visits tsv
+         JOIN stops s ON tsv.stop_id = s.id
+         WHERE tsv.trip_id = $1
+         ORDER BY s.sequence_number`,
+        [req.params.tripId],
+      );
+
+      const statuses = {};
+      rows.forEach((r) => {
+        statuses[r.stop_id] = {
+          visited: r.notified_students_count >= 0,
+          skipped: r.notified_students_count === -1,
+          arrived_at: r.arrived_at,
+        };
+      });
+
+      res.json({ statuses });
+    } catch (err) {
+      console.error("Get stop statuses error:", err);
+      res.status(500).json({ error: "Failed to fetch statuses" });
+    }
+  },
+);
+
 module.exports = router;

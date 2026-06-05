@@ -1,6 +1,6 @@
 /**
  * Live Tracking Screen Controller
- * Shows bus position + ETA to student's assigned stop
+ * Shows bus position + ETA with OSRM road path
  */
 const Tracking = (() => {
   let trackingMap = null;
@@ -9,13 +9,11 @@ const Tracking = (() => {
   let routeLine = null;
   let refreshTimer = null;
 
-  const REFRESH_INTERVAL = 10000; // 10 seconds
+  const REFRESH_INTERVAL = 10000;
 
   function init() {
     const refreshBtn = document.getElementById("refreshTrackingBtn");
-    if (refreshBtn) {
-      refreshBtn.onclick = () => load();
-    }
+    if (refreshBtn) refreshBtn.onclick = () => load();
   }
 
   async function load() {
@@ -24,7 +22,6 @@ const Tracking = (() => {
 
     const profile = App.getProfile();
 
-    // No bus assigned
     if (!profile || profile.bus_request_status !== "approved") {
       container.innerHTML = `
         <div class="no-tracking">
@@ -51,16 +48,25 @@ const Tracking = (() => {
       startAutoRefresh();
     } catch (err) {
       console.error("Tracking error:", err);
-      container.innerHTML = `
-        <div class="no-tracking">
-          <div class="no-tracking-icon">📡</div>
-          <h3>Connection Error</h3>
-          <p>${err.message || "Failed to load tracking data"}</p>
-        </div>`;
+      if (err.status === 404) {
+        container.innerHTML = `
+          <div class="no-tracking">
+            <div class="no-tracking-icon">📍</div>
+            <h3>No Active Assignment</h3>
+            <p>Your bus assignment is not currently active.</p>
+          </div>`;
+      } else {
+        container.innerHTML = `
+          <div class="no-tracking">
+            <div class="no-tracking-icon">📡</div>
+            <h3>Connection Error</h3>
+            <p>${err.message || "Failed to load tracking data"}</p>
+          </div>`;
+      }
+      stopAutoRefresh();
     }
   }
 
-  // ── No Signal ─────────────────────────────────────────────────────────
   function renderNoSignal(container, data) {
     container.innerHTML = `
       <div class="tracking-info-bar">
@@ -68,7 +74,7 @@ const Tracking = (() => {
           <div style="font-size:14px;font-weight:600;color:var(--text)">
             📍 ${data.stop?.stop_name || "Your Stop"}
           </div>
-          <div style="font-size:12px;color:var(--text-muted)">Waiting for bus signal</div>
+          <div style="font-size:12px;color:var(--text-muted)">Waiting for bus</div>
         </div>
         <div style="font-size:12px;color:var(--warning);font-weight:600">⚠️ No Signal</div>
       </div>
@@ -80,14 +86,25 @@ const Tracking = (() => {
       </div>`;
   }
 
-  // ── Live Tracking ─────────────────────────────────────────────────────
   function renderTracking(container, data) {
-    const { bus, stop, eta, trip_status, trip_type } = data;
+    const { bus, stop, eta, trip_status } = data;
+
+    // Calculate dynamic arrival time based on ETA
+    let arrivalTimeStr = "--:--";
+    if (eta && eta.duration_min && !stop?.already_visited) {
+      const arrivalTime = new Date(Date.now() + eta.duration_min * 60 * 1000);
+      arrivalTimeStr = arrivalTime.toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    }
 
     const etaText = eta
-      ? eta.duration_min < 1
-        ? "Arriving now"
-        : `${eta.duration_min} min`
+      ? stop?.already_visited
+        ? "Arrived"
+        : eta.duration_min < 1
+          ? "Arriving now"
+          : `${eta.duration_min} min`
       : "--";
 
     const distText = eta
@@ -122,14 +139,18 @@ const Tracking = (() => {
 
       <!-- Bus Info -->
       <div class="card" style="margin-top:0">
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;text-align:center">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;text-align:center">
           <div>
             <div style="font-size:11px;color:var(--text-muted);font-weight:600">BUS</div>
-            <div style="font-size:15px;font-weight:700">🚌 ${bus.bus_number}</div>
+            <div style="font-size:14px;font-weight:700">🚌 ${bus.bus_number}</div>
           </div>
           <div>
             <div style="font-size:11px;color:var(--text-muted);font-weight:600">SPEED</div>
-            <div style="font-size:15px;font-weight:700">${Math.round(bus.speed_kmh)} km/h</div>
+            <div style="font-size:14px;font-weight:700">${Math.round(bus.speed_kmh)} km/h</div>
+          </div>
+          <div>
+            <div style="font-size:11px;color:var(--text-muted);font-weight:600">ARRIVES</div>
+            <div style="font-size:14px;font-weight:700;color:var(--primary)">${stopVisited ? "Done" : arrivalTimeStr}</div>
           </div>
           <div>
             <div style="font-size:11px;color:var(--text-muted);font-weight:600">UPDATED</div>
@@ -154,11 +175,9 @@ const Tracking = (() => {
           : ""
       }`;
 
-    // Initialize map
     setTimeout(() => initMap(bus, stop, eta), 100);
   }
 
-  // ── Map ───────────────────────────────────────────────────────────────
   function initMap(bus, stop, eta) {
     const mapEl = document.getElementById("trackingMap");
     if (!mapEl) return;
@@ -213,18 +232,19 @@ const Tracking = (() => {
         .addTo(trackingMap)
         .bindPopup(`<strong>Your Stop</strong><br/>${stop.stop_name}`);
 
-      // Fit map to show both markers
-      const bounds = L.latLngBounds(
-        [bus.latitude, bus.longitude],
-        [stop.latitude, stop.longitude],
-      );
-      trackingMap.fitBounds(bounds, { padding: [40, 40] });
-
-      // Draw route line if ETA has geometry
+      // Draw route line
       if (eta?.geometry) {
+        // OSRM returned actual road geometry
         routeLine = L.geoJSON(eta.geometry, {
-          style: { color: "#10b981", weight: 4, opacity: 0.7 },
+          style: {
+            color: "#10b981",
+            weight: 4,
+            opacity: 0.8,
+          },
         }).addTo(trackingMap);
+
+        // Fit map to route bounds
+        trackingMap.fitBounds(routeLine.getBounds(), { padding: [40, 40] });
       } else {
         // Fallback: dashed straight line
         routeLine = L.polyline(
@@ -234,11 +254,17 @@ const Tracking = (() => {
           ],
           { color: "#10b981", weight: 3, dashArray: "8 6", opacity: 0.6 },
         ).addTo(trackingMap);
+
+        // Fit to both markers
+        const bounds = L.latLngBounds(
+          [bus.latitude, bus.longitude],
+          [stop.latitude, stop.longitude],
+        );
+        trackingMap.fitBounds(bounds, { padding: [40, 40] });
       }
     }
   }
 
-  // ── Auto Refresh ──────────────────────────────────────────────────────
   function startAutoRefresh() {
     stopAutoRefresh();
     refreshTimer = setInterval(load, REFRESH_INTERVAL);

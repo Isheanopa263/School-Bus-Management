@@ -438,17 +438,42 @@ router.get(
 
       const trip = tripResult.rows[0] || null;
 
-      // 4. Calculate ETA using OSRM
+      // 4. Calculate ETA using OSRM with road geometry
       let eta = null;
       if (profile.stop_lat && profile.stop_lng) {
-        const { getETA } = require("../services/osrm");
-        eta = await getETA(
+        const { getRoute, getETA } = require("../services/osrm");
+
+        // Try full road-based routing first
+        const routeResult = await getRoute(
           parseFloat(busLocation.latitude),
           parseFloat(busLocation.longitude),
           parseFloat(profile.stop_lat),
           parseFloat(profile.stop_lng),
-          parseFloat(busLocation.speed_kmh || 30),
         );
+
+        if (routeResult) {
+          eta = {
+            distance_m: routeResult.distance_m,
+            duration_min: routeResult.duration_min,
+            geometry: routeResult.geometry, // GeoJSON for drawing on map
+            method: "osrm",
+          };
+        } else {
+          // Fallback to straight line calculation
+          const fallback = await getETA(
+            parseFloat(busLocation.latitude),
+            parseFloat(busLocation.longitude),
+            parseFloat(profile.stop_lat),
+            parseFloat(profile.stop_lng),
+            parseFloat(busLocation.speed_kmh || 30),
+          );
+          eta = {
+            distance_m: fallback.distance_m,
+            duration_min: fallback.duration_min,
+            geometry: null,
+            method: fallback.method,
+          };
+        }
       }
 
       // 5. Check if stop already visited

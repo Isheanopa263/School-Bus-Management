@@ -2448,3 +2448,62 @@ body {
   margin-top: 4px;
   font-weight: 500;
 }
+/* Skip Stop Styles */
+.stop-card.stop-skipped {
+  opacity: 0.6;
+  border-color: var(--warning);
+}
+
+.stop-card.stop-skipped .stop-name.name-skipped {
+  text-decoration: line-through;
+  color: var(--text-muted);
+}
+
+.stop-seq.seq-skipped {
+  background: var(--warning) !important;
+}
+
+.stop-status-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  margin-top: 4px;
+}
+
+.stop-status-badge.skipped {
+  background: var(--warning-light);
+  color: var(--warning);
+}
+
+.stop-status-badge.visited {
+  background: var(--success-light);
+  color: var(--success);
+}
+
+.btn-skip-stop {
+  padding: 4px 10px;
+  background: var(--warning-light);
+  color: var(--warning);
+  border: 1px solid var(--warning);
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn-skip-stop:hover {
+  background: var(--warning);
+  color: white;
+}
+
+.stop-skipped-marker .stop-marker-dot {
+  width: 14px;
+  height: 14px;
+  background: var(--warning);
+  border: 2px solid white;
+  border-radius: 50%;
+}

@@ -83,7 +83,17 @@ const DriverAPI = {
     return apiFetch(`/driver/location/history/${tripId}`);
   },
 
-  // ── SOS ────────────────────────────────────────────────────────────────
+  skipStop(tripId, stopId, reason) {
+    return apiFetch("/driver/stops/skip", {
+      method: "POST",
+      body: JSON.stringify({ trip_id: tripId, stop_id: stopId, reason }),
+    });
+  },
+
+  getStopStatuses(tripId) {
+    return apiFetch(`/driver/stops/status/${tripId}`);
+  },
+
   sendSOS(eventType, severity, details, latitude, longitude) {
     return apiFetch("/driver/sos", {
       method: "POST",

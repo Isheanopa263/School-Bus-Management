@@ -414,6 +414,35 @@ const Navigation = (() => {
     });
   }
 
+  function advancePastStop(stopId) {
+    const idx = stopsData.findIndex((s) => s.id === stopId);
+    if (idx >= 0 && idx <= currentStopIdx) return; // already past
+
+    if (idx === currentStopIdx) {
+      // Mark current stop as skipped visually
+      if (stopMarkers[idx]) {
+        stopMarkers[idx].setIcon(
+          L.divIcon({
+            className: "stop-marker",
+            html: `<div class="stop-marker-inner stop-skipped-marker">
+                 <div class="stop-marker-dot"></div>
+               </div>`,
+            iconSize: [24, 24],
+            iconAnchor: [12, 12],
+          }),
+        );
+      }
+
+      currentStopIdx++;
+
+      if (currentStopIdx < stopsData.length) {
+        updateNextStop();
+      } else {
+        updateNavComplete();
+      }
+    }
+  }
+
   function updateNavStats(lat, lng) {
     if (currentStopIdx >= stopsData.length) return;
 
@@ -506,5 +535,6 @@ const Navigation = (() => {
     updateDriverPosition,
     centerOnDriver,
     fitMapToRoute,
+    advancePastStop,
   };
 })();

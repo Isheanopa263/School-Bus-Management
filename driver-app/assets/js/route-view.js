@@ -380,27 +380,49 @@ const RouteView = (() => {
   }
 
   function renderStopCard(stop) {
+    const status = stopStatuses[stop.id] || {};
+    const isVisited = status.visited;
+    const isSkipped = status.skipped;
+
+    let statusBadge = "";
+    let skipButton = "";
+
+    if (isSkipped) {
+      statusBadge = `<span class="stop-status-badge skipped">⚠️ Skipped</span>`;
+    } else if (isVisited) {
+      statusBadge = `<span class="stop-status-badge visited">✅ Visited</span>`;
+    }
+
+    if (activeTripId && !isVisited && !isSkipped) {
+      skipButton = `
+      <button class="btn-skip-stop" onclick="RouteView.skipStop('${stop.id}')">
+        Skip Stop
+      </button>`;
+    }
+
     return `
-      <div class="stop-card" id="stop-${stop.id}">
-        <div class="stop-header" onclick="RouteView.toggleStop('${stop.id}')">
-          <div class="stop-seq">${stop.sequence_number}</div>
-          <div class="stop-info">
-            <div class="stop-name">${stop.name}</div>
-            <div class="stop-time">
-              ${stop.scheduled_arrival_time ? `⏰ ${stop.scheduled_arrival_time}` : "No scheduled time"}
-            </div>
+    <div class="stop-card ${isSkipped ? "stop-skipped" : ""} ${isVisited ? "stop-arrived" : ""}" id="stop-${stop.id}">
+      <div class="stop-header" onclick="RouteView.toggleStop('${stop.id}')">
+        <div class="stop-seq ${isSkipped ? "seq-skipped" : ""}">${stop.sequence_number}</div>
+        <div class="stop-info">
+          <div class="stop-name ${isSkipped ? "name-skipped" : ""}">${stop.name}</div>
+          <div class="stop-time">
+            ${stop.scheduled_arrival_time ? `⏰ ${stop.scheduled_arrival_time}` : "No scheduled time"}
           </div>
-          <div class="stop-meta">
-            <span class="student-count">👥 ${stop.students.length}</span>
-            <span class="stop-chevron">▼</span>
-          </div>
+          ${statusBadge}
         </div>
-        <div class="students-panel">
-          <div class="students-panel-inner">
-            ${renderStudents(stop.students, stop.id)}
-          </div>
+        <div class="stop-meta">
+          ${skipButton}
+          <span class="student-count">👥 ${stop.students.length}</span>
+          <span class="stop-chevron">▼</span>
         </div>
-      </div>`;
+      </div>
+      <div class="students-panel">
+        <div class="students-panel-inner">
+          ${renderStudents(stop.students, stop.id)}
+        </div>
+      </div>
+    </div>`;
   }
 
   function renderStudents(students, stopId) {
@@ -575,8 +597,9 @@ const RouteView = (() => {
     setTripActive(trip);
     GPS.start(trip.id);
     GPS.onPosition(onGPSUpdate);
-    if (state.mapInitialized) Navigation.startNavigation();
+    if (mapInitialized) Navigation.startNavigation();
     await loadAttendance();
+    await loadStopStatuses();
     renderStopsList();
   }
 
@@ -870,13 +893,48 @@ const RouteView = (() => {
     $(`stop-${stopId}`)?.classList.toggle("expanded");
   }
 
+  let stopStatuses = {}; // { stopId: { visited, skipped, arrived_at } }
+
+  async function loadStopStatuses() {
+    if (!state.activeTripId) {
+      stopStatuses = {};
+      return;
+    }
+    try {
+      const data = await DriverAPI.getStopStatuses(state.activeTripId);
+      stopStatuses = data.statuses || {};
+    } catch (err) {
+      console.error("Load stop statuses error:", err);
+      stopStatuses = {};
+    }
+  }
+
+  async function skipStop(stopId) {
+    if (!activeTripId) {
+      alert("No active trip");
+      return;
+    }
+
+    const reason = prompt("Why is this stop being skipped?", "Route diversion");
+    if (reason === null) return; // cancelled
+
+    try {
+      await DriverAPI.skipStop(activeTripId, stopId, reason);
+
+      // Reload statuses and re-render
+      await loadStopStatuses();
+      renderStopsList();
+
+      // Advance navigation past this stop
+      Navigation.advancePastStop(stopId);
+    } catch (err) {
+      alert(err.message || "Failed to skip stop");
+    }
+  }
+
   // ════════════════════════════════════════════════════════════════════════
   // PUBLIC API
   // ════════════════════════════════════════════════════════════════════════
 
-  return {
-    init,
-    toggleStop,
-    toggleAttendance,
-  };
+  return { init, toggleStop, toggleAttendance, skipStop };
 })();
