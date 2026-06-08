@@ -1,9 +1,11 @@
 const request = require("supertest");
 const { app } = require("../src/app");
+const db = require("../src/db");
 const {
   cleanDatabase,
   createTestBus,
   createTestRoute,
+  createTestStop,
   createTestAssignment,
   closePool,
 } = require("./helpers/db");
@@ -53,6 +55,48 @@ describe("Driver Trip Workflow", () => {
         .get("/api/driver/route/today")
         .set("Authorization", `Bearer ${admin.token}`);
       expect(res.status).toBe(403);
+    });
+
+    it("includes route_path in response", async () => {
+      // Create route with path
+      const routeWithPath = await createTestRoute({
+        name: "Path Test Route",
+      });
+
+      // Need to add route_path manually since helper doesn't set it
+      await db.query(
+        `UPDATE routes SET route_path = ST_GeomFromText('LINESTRING(82.13 17.08, 82.07 17.09)', 4326) WHERE rid = $1`,
+        [routeWithPath.rid],
+      );
+
+      const stopP = await createTestStop(routeWithPath.rid, 1);
+      const busP = await createTestBus({
+        registration_number: `PATH-${Date.now()}`,
+      });
+      const driver2 = await createDriver();
+
+      await request(app)
+        .put(`/api/drivers/${driver2.driver.id}`)
+        .set("Authorization", `Bearer ${admin.token}`)
+        .send({
+          current_bus_id: busP.bid,
+          license_number: driver2.driver.license_number,
+          license_expiry: "2027-12-31",
+        });
+
+      await createTestAssignment(
+        routeWithPath.rid,
+        busP.bid,
+        driver2.driver.id,
+      );
+
+      const res = await request(app)
+        .get("/api/driver/route/today")
+        .set("Authorization", `Bearer ${driver2.token}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.assignment.route_path).toBeDefined();
+      expect(res.body.assignment.route_path).toContain("LINESTRING");
     });
   });
 

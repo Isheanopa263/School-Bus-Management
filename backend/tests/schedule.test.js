@@ -157,4 +157,113 @@ describe("Schedule Builder - Route Assignments", () => {
       expect(res.status).toBe(404);
     });
   });
+  describe("PUT /api/route-assignments/:id/toggle-pause", () => {
+    it("pauses an active assignment", async () => {
+      const a = await createTestAssignment(
+        route.rid,
+        bus.bid,
+        driver.driver.id,
+      );
+      const res = await request(app)
+        .put(`/api/route-assignments/${a.id}/toggle-pause`)
+        .set("Authorization", `Bearer ${admin.token}`);
+      expect(res.status).toBe(200);
+      expect(res.body.assignment.is_paused).toBe(true);
+    });
+
+    it("resumes a paused assignment", async () => {
+      const a = await createTestAssignment(
+        route.rid,
+        bus.bid,
+        driver.driver.id,
+      );
+
+      // Pause first
+      await request(app)
+        .put(`/api/route-assignments/${a.id}/toggle-pause`)
+        .set("Authorization", `Bearer ${admin.token}`);
+
+      // Resume
+      const res = await request(app)
+        .put(`/api/route-assignments/${a.id}/toggle-pause`)
+        .set("Authorization", `Bearer ${admin.token}`);
+      expect(res.status).toBe(200);
+      expect(res.body.assignment.is_paused).toBe(false);
+    });
+
+    it("returns 404 for non-existent assignment", async () => {
+      const res = await request(app)
+        .put(
+          "/api/route-assignments/00000000-0000-0000-0000-000000000000/toggle-pause",
+        )
+        .set("Authorization", `Bearer ${admin.token}`);
+      expect(res.status).toBe(404);
+    });
+
+    it("returns 403 for driver role", async () => {
+      const a = await createTestAssignment(
+        route.rid,
+        bus.bid,
+        driver.driver.id,
+      );
+      const res = await request(app)
+        .put(`/api/route-assignments/${a.id}/toggle-pause`)
+        .set("Authorization", `Bearer ${driver.token}`);
+      expect(res.status).toBe(403);
+    });
+
+    it("paused assignment hidden from driver route today", async () => {
+      const a = await createTestAssignment(
+        route.rid,
+        bus.bid,
+        driver.driver.id,
+      );
+
+      // Pause
+      await request(app)
+        .put(`/api/route-assignments/${a.id}/toggle-pause`)
+        .set("Authorization", `Bearer ${admin.token}`);
+
+      // Driver should not see this route
+      const res = await request(app)
+        .get("/api/driver/route/today")
+        .set("Authorization", `Bearer ${driver.token}`);
+      expect(res.status).toBe(404);
+    });
+  });
+
+  describe("PUT /api/route-assignments/:id (edit)", () => {
+    it("updates assignment shift", async () => {
+      const a = await createTestAssignment(
+        route.rid,
+        bus.bid,
+        driver.driver.id,
+      );
+      const res = await request(app)
+        .put(`/api/route-assignments/${a.id}`)
+        .set("Authorization", `Bearer ${admin.token}`)
+        .send({
+          route_id: route.rid,
+          bus_id: bus.bid,
+          driver_id: driver.driver.id,
+          effective_date: new Date().toISOString().split("T")[0],
+          shift: "afternoon",
+        });
+      expect(res.status).toBe(200);
+      expect(res.body.assignment.shift).toBe("afternoon");
+    });
+
+    it("returns 400 without required fields", async () => {
+      const a = await createTestAssignment(
+        route.rid,
+        bus.bid,
+        driver.driver.id,
+      );
+      const res = await request(app)
+        .put(`/api/route-assignments/${a.id}`)
+        .set("Authorization", `Bearer ${admin.token}`)
+        .send({ route_id: route.rid });
+      expect(res.status).toBe(400);
+    });
+  });
 });
