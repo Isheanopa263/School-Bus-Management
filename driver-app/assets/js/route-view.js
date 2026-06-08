@@ -20,7 +20,11 @@ const RouteView = (() => {
       icon: "↗️",
       name: "Route Deviation",
     },
-    "sos-other-btn": { type: "harsh_braking", icon: "⚠️", name: "Other Issue" },
+    "sos-other-btn": {
+      type: "harsh_braking",
+      icon: "⚠️",
+      name: "Other Issue",
+    },
   };
 
   const SOS_ICONS = {
@@ -44,6 +48,7 @@ const RouteView = (() => {
     originalStops: [],
     originalAssignment: null,
     attendanceMap: {},
+    stopStatuses: {},
     currentTab: "dashboard",
     mapInitialized: false,
     currentSOSType: null,
@@ -69,6 +74,7 @@ const RouteView = (() => {
   function show(id) {
     toggleClass(id, "hidden", false);
   }
+
   function hide(id) {
     toggleClass(id, "hidden", true);
   }
@@ -380,7 +386,7 @@ const RouteView = (() => {
   }
 
   function renderStopCard(stop) {
-    const status = stopStatuses[stop.id] || {};
+    const status = state.stopStatuses[stop.id] || {};
     const isVisited = status.visited;
     const isSkipped = status.skipped;
 
@@ -393,36 +399,36 @@ const RouteView = (() => {
       statusBadge = `<span class="stop-status-badge visited">✅ Visited</span>`;
     }
 
-    if (activeTripId && !isVisited && !isSkipped) {
+    if (state.activeTripId && !isVisited && !isSkipped) {
       skipButton = `
-      <button class="btn-skip-stop" onclick="RouteView.skipStop('${stop.id}')">
-        Skip Stop
-      </button>`;
+        <button class="btn-skip-stop" onclick="RouteView.skipStop('${stop.id}')">
+          Skip Stop
+        </button>`;
     }
 
     return `
-    <div class="stop-card ${isSkipped ? "stop-skipped" : ""} ${isVisited ? "stop-arrived" : ""}" id="stop-${stop.id}">
-      <div class="stop-header" onclick="RouteView.toggleStop('${stop.id}')">
-        <div class="stop-seq ${isSkipped ? "seq-skipped" : ""}">${stop.sequence_number}</div>
-        <div class="stop-info">
-          <div class="stop-name ${isSkipped ? "name-skipped" : ""}">${stop.name}</div>
-          <div class="stop-time">
-            ${stop.scheduled_arrival_time ? `⏰ ${stop.scheduled_arrival_time}` : "No scheduled time"}
+      <div class="stop-card ${isSkipped ? "stop-skipped" : ""} ${isVisited ? "stop-arrived" : ""}" id="stop-${stop.id}">
+        <div class="stop-header" onclick="RouteView.toggleStop('${stop.id}')">
+          <div class="stop-seq ${isSkipped ? "seq-skipped" : ""}">${stop.sequence_number}</div>
+          <div class="stop-info">
+            <div class="stop-name ${isSkipped ? "name-skipped" : ""}">${stop.name}</div>
+            <div class="stop-time">
+              ${stop.scheduled_arrival_time ? `⏰ ${stop.scheduled_arrival_time}` : "No scheduled time"}
+            </div>
+            ${statusBadge}
           </div>
-          ${statusBadge}
+          <div class="stop-meta">
+            ${skipButton}
+            <span class="student-count">👥 ${stop.students.length}</span>
+            <span class="stop-chevron">▼</span>
+          </div>
         </div>
-        <div class="stop-meta">
-          ${skipButton}
-          <span class="student-count">👥 ${stop.students.length}</span>
-          <span class="stop-chevron">▼</span>
+        <div class="students-panel">
+          <div class="students-panel-inner">
+            ${renderStudents(stop.students, stop.id)}
+          </div>
         </div>
-      </div>
-      <div class="students-panel">
-        <div class="students-panel-inner">
-          ${renderStudents(stop.students, stop.id)}
-        </div>
-      </div>
-    </div>`;
+      </div>`;
   }
 
   function renderStudents(students, stopId) {
@@ -455,8 +461,8 @@ const RouteView = (() => {
   function renderAttendanceCheckbox(sid, stopId, tripType, marked) {
     return `
       <label class="attendance-checkbox-wrapper">
-        <input type="checkbox" 
-               class="attendance-checkbox" 
+        <input type="checkbox"
+               class="attendance-checkbox"
                ${marked ? "checked" : ""}
                onchange="RouteView.toggleAttendance('${sid}', '${stopId}', '${tripType}', this.checked)" />
         <span class="checkmark"></span>
@@ -486,8 +492,11 @@ const RouteView = (() => {
     $("stops-list").innerHTML = "";
     $("stops-count").textContent = "0";
     $("quick-stats").innerHTML = "";
-    $("start-trip-btn").disabled = true;
-    $("start-trip-btn-alt").disabled = true;
+
+    const startBtn = $("start-trip-btn");
+    const startBtnAlt = $("start-trip-btn-alt");
+    if (startBtn) startBtn.disabled = true;
+    if (startBtnAlt) startBtnAlt.disabled = true;
   }
 
   // ════════════════════════════════════════════════════════════════════════
@@ -495,14 +504,12 @@ const RouteView = (() => {
   // ════════════════════════════════════════════════════════════════════════
 
   function setTripState(stateName, trip = null) {
-    // Hide all states first
     hide("trip-idle");
     hide("trip-active");
     hide("trip-completed");
     hide("trip-detail-idle");
     hide("trip-detail-active");
 
-    // Show the requested state
     switch (stateName) {
       case "idle":
         showIdleState();
@@ -520,8 +527,11 @@ const RouteView = (() => {
     show("trip-idle");
     show("trip-detail-idle");
     hide("trip-badge");
-    $("start-trip-btn").disabled = false;
-    $("start-trip-btn-alt").disabled = false;
+
+    const startBtn = $("start-trip-btn");
+    const startBtnAlt = $("start-trip-btn-alt");
+    if (startBtn) startBtn.disabled = false;
+    if (startBtnAlt) startBtnAlt.disabled = false;
   }
 
   function showActiveState(trip) {
@@ -567,8 +577,12 @@ const RouteView = (() => {
   function setTripCompleted(trip) {
     clearTripState();
     setTripState("completed", trip);
-    $("start-trip-btn").disabled = false;
-    $("start-trip-btn-alt").disabled = false;
+
+    const startBtn = $("start-trip-btn");
+    const startBtnAlt = $("start-trip-btn-alt");
+    if (startBtn) startBtn.disabled = false;
+    if (startBtnAlt) startBtnAlt.disabled = false;
+
     sessionStorage.removeItem(STORAGE_KEY);
   }
 
@@ -576,6 +590,7 @@ const RouteView = (() => {
     state.activeTripId = null;
     state.tripStartTime = null;
     state.attendanceMap = {};
+    state.stopStatuses = {};
     stopTimer();
     GPS.stop();
     GPS.offPosition(onGPSUpdate);
@@ -597,7 +612,7 @@ const RouteView = (() => {
     setTripActive(trip);
     GPS.start(trip.id);
     GPS.onPosition(onGPSUpdate);
-    if (mapInitialized) Navigation.startNavigation();
+    if (state.mapInitialized) Navigation.startNavigation();
     await loadAttendance();
     await loadStopStatuses();
     renderStopsList();
@@ -643,8 +658,11 @@ const RouteView = (() => {
 
   async function handleStartTrip(tripType) {
     closeModal("start-trip-modal")();
-    $("start-trip-btn").disabled = true;
-    $("start-trip-btn-alt").disabled = true;
+
+    const startBtn = $("start-trip-btn");
+    const startBtnAlt = $("start-trip-btn-alt");
+    if (startBtn) startBtn.disabled = true;
+    if (startBtnAlt) startBtnAlt.disabled = true;
 
     try {
       const { trip } = await DriverAPI.startTrip(tripType);
@@ -653,6 +671,7 @@ const RouteView = (() => {
       setTripActive(trip);
 
       await loadAttendance();
+      await loadStopStatuses();
       renderStopsList();
 
       GPS.start(trip.id);
@@ -663,8 +682,8 @@ const RouteView = (() => {
       switchTab("map");
     } catch (err) {
       alert(getStartTripErrorMessage(err));
-      $("start-trip-btn").disabled = false;
-      $("start-trip-btn-alt").disabled = false;
+      if (startBtn) startBtn.disabled = false;
+      if (startBtnAlt) startBtnAlt.disabled = false;
     }
   }
 
@@ -784,6 +803,43 @@ const RouteView = (() => {
   }
 
   // ════════════════════════════════════════════════════════════════════════
+  // STOP STATUSES
+  // ════════════════════════════════════════════════════════════════════════
+
+  async function loadStopStatuses() {
+    if (!state.activeTripId) {
+      state.stopStatuses = {};
+      return;
+    }
+    try {
+      const data = await DriverAPI.getStopStatuses(state.activeTripId);
+      state.stopStatuses = data.statuses || {};
+    } catch (err) {
+      console.error("Load stop statuses error:", err);
+      state.stopStatuses = {};
+    }
+  }
+
+  async function skipStop(stopId) {
+    if (!state.activeTripId) {
+      alert("No active trip");
+      return;
+    }
+
+    const reason = prompt("Why is this stop being skipped?", "Route diversion");
+    if (reason === null) return;
+
+    try {
+      await DriverAPI.skipStop(state.activeTripId, stopId, reason);
+      await loadStopStatuses();
+      renderStopsList();
+      Navigation.advancePastStop(stopId);
+    } catch (err) {
+      alert(err.message || "Failed to skip stop");
+    }
+  }
+
+  // ════════════════════════════════════════════════════════════════════════
   // SOS
   // ════════════════════════════════════════════════════════════════════════
 
@@ -794,7 +850,9 @@ const RouteView = (() => {
     $("sos-description").value = "";
 
     $$(".severity-btn").forEach((b) => b.classList.remove("active"));
-    $('.severity-btn[data-severity="high"]')?.classList.add("active");
+    document
+      .querySelector('.severity-btn[data-severity="high"]')
+      ?.classList.add("active");
 
     const pos = GPS.getLastPosition();
     setText(
@@ -820,7 +878,8 @@ const RouteView = (() => {
     btn.textContent = "Sending...";
 
     try {
-      const severity = $(".severity-btn.active")?.dataset.severity || "high";
+      const severityBtn = document.querySelector(".severity-btn.active");
+      const severity = severityBtn?.dataset.severity || "high";
       const description = $("sos-description").value.trim();
       const pos = GPS.getLastPosition();
 
@@ -893,48 +952,14 @@ const RouteView = (() => {
     $(`stop-${stopId}`)?.classList.toggle("expanded");
   }
 
-  let stopStatuses = {}; // { stopId: { visited, skipped, arrived_at } }
-
-  async function loadStopStatuses() {
-    if (!state.activeTripId) {
-      stopStatuses = {};
-      return;
-    }
-    try {
-      const data = await DriverAPI.getStopStatuses(state.activeTripId);
-      stopStatuses = data.statuses || {};
-    } catch (err) {
-      console.error("Load stop statuses error:", err);
-      stopStatuses = {};
-    }
-  }
-
-  async function skipStop(stopId) {
-    if (!activeTripId) {
-      alert("No active trip");
-      return;
-    }
-
-    const reason = prompt("Why is this stop being skipped?", "Route diversion");
-    if (reason === null) return; // cancelled
-
-    try {
-      await DriverAPI.skipStop(activeTripId, stopId, reason);
-
-      // Reload statuses and re-render
-      await loadStopStatuses();
-      renderStopsList();
-
-      // Advance navigation past this stop
-      Navigation.advancePastStop(stopId);
-    } catch (err) {
-      alert(err.message || "Failed to skip stop");
-    }
-  }
-
   // ════════════════════════════════════════════════════════════════════════
   // PUBLIC API
   // ════════════════════════════════════════════════════════════════════════
 
-  return { init, toggleStop, toggleAttendance, skipStop };
+  return {
+    init,
+    toggleStop,
+    toggleAttendance,
+    skipStop,
+  };
 })();
