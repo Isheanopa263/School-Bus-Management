@@ -1,7 +1,7 @@
 // Register Service Worker
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker
-    .register("/student-app/service-worker.js")
+    .register("service-worker.js")
     .then((reg) => console.log("[SW] Registered:", reg.scope))
     .catch((err) => console.error("[SW] Failed:", err.message));
 }
