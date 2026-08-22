@@ -1,27 +1,29 @@
 const path = require("path");
 const { Pool } = require("pg");
 
-// Load environment variables
+// Load environment variables (.env.test for tests, .env for dev/prod)
 const envFile =
   process.env.NODE_ENV === "test" ? "../../.env.test" : "../../.env";
 require("dotenv").config({ path: path.resolve(__dirname, envFile) });
 
 let pool;
 
-// Railway provides DATABASE_URL - use it if available
 if (process.env.DATABASE_URL) {
+  // Determine if SSL is required (e.g., Supabase / Cloud DBs or DB_SSL=true)
+  const isCloudDb =
+    process.env.DATABASE_URL.includes("supabase.co") ||
+    process.env.DATABASE_URL.includes("sslmode=require") ||
+    process.env.DB_SSL === "true";
+
   pool = new Pool({
     connectionString: process.env.DATABASE_URL,
-    ssl:
-      process.env.NODE_ENV === "production"
-        ? { rejectUnauthorized: false }
-        : false,
+    ssl: isCloudDb ? { rejectUnauthorized: false } : false,
     max: 10,
     idleTimeoutMillis: 30000,
     connectionTimeoutMillis: 5000,
   });
 } else {
-  // Local development - use individual env vars
+  // Fallback for individual env vars
   const requiredEnv = [
     "DB_USER",
     "DB_HOST",
@@ -55,8 +57,8 @@ pool.on("connect", () => {
 });
 
 pool.on("error", (err) => {
-  console.error("Unexpected error on idle PostgreSQL client", err);
-  process.exit(-1);
+  console.error("Unexpected error on idle PostgreSQL client:", err.message);
+  // Log error without crashing the server process
 });
 
 module.exports = {

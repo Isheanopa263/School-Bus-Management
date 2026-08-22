@@ -1,0 +1,33 @@
+.top-nav-mobile {
+  display: none;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 0 16px;
+  height: 56px;
+  align-items: center;
+  gap: 12px;
+  position: sticky;
+  top: 0;
+  z-index: 900;
+}
+
+.menu-toggle {
+  background: none;
+  border: none;
+  color: var(--text);
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+}
+
+.top-nav-brand {
+  font-weight: 700;
+  font-size: 16px;
+  color: var(--text);
+}
+
+@media (max-width: 768px) {
+  .top-nav-mobile {
+    display: flex;
+  }
+}

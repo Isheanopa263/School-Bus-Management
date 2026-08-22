@@ -1,4 +1,4 @@
-const API_BASE = "https://school-bus-management-production.up.railway.app/api";
+const API_BASE = "/api";
 
 async function apiFetch(endpoint, options = {}) {
   const token = sessionStorage.getItem("student_token");

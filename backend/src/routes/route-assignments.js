@@ -47,7 +47,6 @@ router.get(
     try {
       let query = `
   SELECT ra.*,
-         COALESCE(ra.is_paused, false) AS is_paused,
          r.name as route_name,
          b.registration_number as bus_number,
          u.full_name as driver_name,
@@ -129,7 +128,7 @@ router.delete("/:id", requireAuth, requireRole(["admin"]), async (req, res) => {
 /**
  * PUT /api/route-assignments/:id/toggle-pause
  * Pause or resume an assignment
- */
+
 router.put(
   "/:id/toggle-pause",
   requireAuth,
@@ -158,7 +157,7 @@ router.put(
     }
   },
 );
-
+ */
 /**
  * PUT /api/route-assignments/:id - Admin only
  * Edit an assignment

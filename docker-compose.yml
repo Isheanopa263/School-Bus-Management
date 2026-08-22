@@ -1,18 +1,40 @@
-version: '3.8'
 services:
-db:
-image: postgres:15
-environment:
-POSTGRES_DB: schoolbus
-POSTGRES_USER: dev
-POSTGRES_PASSWORD: devpass
-ports:
-- "5432:5432"
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:80"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/school_bus_db
+      - JWT_SECRET=bustrack_secret_key_2026
+      - JWT_EXPIRES_IN=7d
+    volumes:
+      - uploads_data:/app/data/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: postgis/postgis:14-3.3
+    container_name: bus_system_db
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=school_bus_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backend/sql/schema.sql:/docker-entrypoint-initdb.d/1_schema.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d school_bus_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
 volumes:
-- pgdata:/var/lib/postgresql/data
-redis:
-image: redis:7-alpine
-ports:
-- "6379:6379"
-volumes:
-pgdata:
+  postgres_data:
+  uploads_data:

@@ -148,7 +148,6 @@ router.get(
    WHERE ra.driver_id = $1
      AND ra.effective_date <= $2
      AND (ra.end_date IS NULL OR ra.end_date >= $2)
-     AND COALESCE(ra.is_paused, false) = false
    ORDER BY ra.effective_date DESC
    LIMIT 1`,
         [driverId, today],

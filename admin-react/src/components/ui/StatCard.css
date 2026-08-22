@@ -1,0 +1,82 @@
+.stat-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: default;
+}
+
+.stat-card:hover {
+  border-color: var(--primary);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.stat-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  flex-shrink: 0;
+  background: var(--primary-glow);
+  transition: transform 0.2s;
+}
+
+.stat-card:hover .stat-icon {
+  transform: scale(1.05);
+}
+
+.stat-value {
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.2;
+  transition: color 0.2s;
+}
+
+.stat-card:hover .stat-value {
+  color: var(--primary);
+}
+
+.stat-label {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+/* Variants */
+.stat-card.warning .stat-icon {
+  background: var(--warning-light);
+}
+.stat-card.warning:hover {
+  border-color: var(--warning);
+}
+.stat-card.warning:hover .stat-value {
+  color: var(--warning);
+}
+
+.stat-card.error .stat-icon {
+  background: var(--error-light);
+}
+.stat-card.error:hover {
+  border-color: var(--error);
+}
+.stat-card.error:hover .stat-value {
+  color: var(--error);
+}
+
+.stat-card.success .stat-icon {
+  background: var(--success-light);
+}
+.stat-card.success:hover {
+  border-color: var(--success);
+}
+.stat-card.success:hover .stat-value {
+  color: var(--success);
+}

@@ -68,11 +68,11 @@ const DriverPush = (() => {
           ? API_BASE.replace("/api", "")
           : "https://school-bus-management-production.up.railway.app";
 
-      await fetch(`${baseUrl}/api/notifications/token`, {
+      await fetch("/api/notifications/token", {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${driverToken}`,
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ fcm_token: token }),
       });

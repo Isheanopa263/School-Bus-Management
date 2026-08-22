@@ -1,0 +1,97 @@
+/* Shared table cell styles */
+.empty-cell {
+  text-align: center;
+  color: var(--text-muted);
+  padding: 40px !important;
+}
+
+.user-cell {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.user-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: var(--primary-glow);
+  color: var(--primary);
+  font-size: 14px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: transform 0.2s;
+}
+
+.user-cell:hover .user-avatar {
+  transform: scale(1.1);
+}
+
+.user-name {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.user-email {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.mono-text {
+  font-family: "Monaco", "Courier New", monospace;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.muted-text {
+  color: var(--text-muted);
+  font-style: italic;
+  font-size: 13px;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.table-wrapper {
+  overflow-x: auto;
+}
+
+.form-section-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--primary);
+  margin: 24px 0 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.form-section-title:first-child {
+  margin-top: 0;
+}
+
+/* Expiry warnings */
+.expiry-danger {
+  color: var(--error);
+  font-weight: 600;
+}
+
+.expiry-warning {
+  color: var(--warning);
+  font-weight: 600;
+}
+
+@media (max-width: 768px) {
+  .data-table th:nth-child(3),
+  .data-table td:nth-child(3),
+  .data-table th:nth-child(4),
+  .data-table td:nth-child(4) {
+    display: none;
+  }
+}
